@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace NightShift
+namespace MobileGearSolid
 {
     /// 3-direction (down / up / side, side is flipped for left) 4-frame walk cycle.
     public class CharAnim

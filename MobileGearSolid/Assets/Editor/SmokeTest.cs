@@ -4,12 +4,12 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 
-namespace NightShift.EditorTools
+namespace MobileGearSolid.EditorTools
 {
     /// Batch-mode play test. An autopilot plays the whole tutorial (walks, shoots, hides in the box,
     /// freezes when watched, places a trap and sneaks around), then opens every mission.
     /// Saves screenshots to Logs/SmokeTest and logs every error. Player progress is restored afterwards.
-    ///   Unity -batchmode -projectPath . -executeMethod NightShift.EditorTools.SmokeTest.Run
+    ///   Unity -batchmode -projectPath . -executeMethod MobileGearSolid.EditorTools.SmokeTest.Run
     public static class SmokeTest
     {
         static int step;
@@ -21,7 +21,7 @@ namespace NightShift.EditorTools
 
         const string RunningKey = "ns_smoke_running";
 
-        [MenuItem("Night Shift/Run Smoke Test")]
+        [MenuItem("Mobile Gear Solid/Run Smoke Test")]
         public static void Run()
         {
             EditorSceneManager.OpenScene("Assets/Scenes/Game.unity");
@@ -171,12 +171,14 @@ namespace NightShift.EditorTools
                 // --- missions: open each, look around, check box + alert in mission 2
                 case 17: if (Elapsed > 1) { g.StartMission(1); Next(); } break;
                 case 18: if (Elapsed > 0.8) { Shot("m1_briefing"); g.BeginPlay(); Next(); } break;
-                case 19: if (Elapsed > 1.5) { Shot("m1_start"); g.StartMission(2); g.BeginPlay(); Next(); } break;
-                case 20: if (Elapsed > 1.5) { Shot("m2_start"); g.Level.CutPower(); Next(); } break;
-                case 21: if (Elapsed > 1.5) { Shot("m2_power_off"); g.StartMission(3); g.BeginPlay(); Next(); } break;
-                case 22: if (Elapsed > 1.5) { Shot("m3_start"); g.RaiseAlert("test", p.Pos); Next(); } break;
-                case 23: if (Elapsed > 8) { Shot("m3_alert_search"); LogGuards(); Next(); } break;
-                case 24: Finish(); break;
+                case 19: if (Elapsed > 1.5) { Shot("m1_start_pointer"); p.hp = 2; p.Hurt(1); Next(); } break;
+                case 20: if (Elapsed > 0.12) { Shot("m1_hurt_flash"); Next(); } break;
+                case 21: if (Elapsed > 2.0) { Shot("m1_low_hp_pulse"); g.StartMission(2); g.BeginPlay(); Next(); } break;
+                case 22: if (Elapsed > 1.5) { Shot("m2_start"); g.Level.CutPower(); Next(); } break;
+                case 23: if (Elapsed > 1.5) { Shot("m2_power_off"); g.StartMission(3); g.BeginPlay(); Next(); } break;
+                case 24: if (Elapsed > 1.5) { Shot("m3_start"); g.RaiseAlert("test", p.Pos); Next(); } break;
+                case 25: if (Elapsed > 8) { Shot("m3_alert_search"); LogGuards(); Next(); } break;
+                case 26: Finish(); break;
             }
         }
 

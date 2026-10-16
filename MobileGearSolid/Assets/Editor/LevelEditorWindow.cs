@@ -5,7 +5,7 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 
-namespace NightShift.EditorTools
+namespace MobileGearSolid.EditorTools
 {
     /// Paint-style editor for the text level files in Assets/Resources/Levels.
     /// LMB paints the selected tile, RMB picks the tile under the cursor.
@@ -30,8 +30,8 @@ namespace NightShift.EditorTools
             new Color(1f, 0.5f, 1f), new Color(1f, 0.7f, 0.3f), new Color(0.5f, 0.6f, 1f), new Color(0.4f, 1f, 0.9f),
         };
 
-        [MenuItem("Night Shift/Level Editor")]
-        static void Open() => GetWindow<LevelEditorWindow>("Night Shift Levels").Show();
+        [MenuItem("Mobile Gear Solid/Level Editor")]
+        static void Open() => GetWindow<LevelEditorWindow>("Mobile Gear Solid Levels").Show();
 
         // The char grid can't survive a domain reload (Play Mode / recompile), but plain strings can,
         // so stash it on disable and rebuild it on enable — unsaved edits are kept too.

@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace NightShift
+namespace MobileGearSolid
 {
     /// Wall camera sweeping a red sector. Disabled while the power is cut.
     public class SecurityCamera : MonoBehaviour

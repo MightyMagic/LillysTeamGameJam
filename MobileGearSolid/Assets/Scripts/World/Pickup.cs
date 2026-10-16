@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace NightShift
+namespace MobileGearSolid
 {
     public enum PickupKind { Keycard, Intel, Ammo, Medkit, Decoy, Prototype }
 

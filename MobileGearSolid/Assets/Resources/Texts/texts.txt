@@ -1,5 +1,5 @@
 # =====================================================================
-#  ВСЕ ТЕКСТЫ ИГРЫ NIGHT SHIFT
+#  ВСЕ ТЕКСТЫ ИГРЫ MOBILE GEAR SOLID
 #  Формат:  ключ = текст
 #  \n — перенос строки, {0} {1} ... — подставляемые значения (не удалять).
 #  Можно использовать теги <color=#ff0000>...</color>, <b>...</b>, <size=24>...</size>.
@@ -13,11 +13,12 @@ speaker.major = МАЙОР
 speaker.boss = БИГ БОСС
 
 # ---------------------------------------------------------------- главное меню
-menu.title = PROJECT: NIGHT SHIFT
+menu.title = MOBILE GEAR SOLID
 menu.tagline = Зайди, обмани охрану, забери секрет и выйди. Чем чище — тем лучше награда.
 menu.missions = МИССИИ
 menu.locked = ЗАКРЫТО — пройди предыдущую миссию
 menu.not_done = Не пройдена
+menu.start_here = Новичок? Начни отсюда
 menu.best_rank = Лучший ранг: {0}
 menu.gear = СНАРЯЖЕНИЕ    <color=#ffd060>Кредиты: {0}</color>
 menu.bought = КУПЛЕНО
@@ -71,7 +72,7 @@ rank.silent = SILENT OPERATOR
 rank.compromised = COMPROMISED
 
 # ---------------------------------------------------------------- HUD
-hud.status = <color=#e36a5a>ЗДОРОВЬЕ {0}</color>\nПАТРОНЫ {1}   ЛОВУШКИ {2}\nРАЗВЕДДАННЫЕ {3}/{4}
+hud.distance = {0} м
 hud.keycard = ПРОПУСК
 hud.in_box = В КОРОБКЕ — замри, если рядом охрана
 hud.alert = ! ТРЕВОГА  {0}

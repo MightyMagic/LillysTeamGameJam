@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace NightShift
+namespace MobileGearSolid
 {
     /// Base for anything the context button can act on. Shows a pulsing cyan marker
     /// so interactive objects read differently from decor (GDD §5).

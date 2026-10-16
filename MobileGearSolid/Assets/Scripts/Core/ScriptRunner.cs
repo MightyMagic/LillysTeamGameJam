@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using UnityEngine;
 
-namespace NightShift
+namespace MobileGearSolid
 {
     /// Runs the [script] section of a level file, one command per line (see LEVELS.md):
     ///   say &lt;speaker&gt; &lt;textKey&gt;      visual-novel dialogue, pauses the game until tapped
@@ -21,6 +21,36 @@ namespace NightShift
         int trapsAtWait;
         bool inDialog;
         public Vector2 Checkpoint { get; private set; }
+
+        /// Where the script wants the player to go right now (for the HUD pointer), or null.
+        public Vector2? Target
+        {
+            get
+            {
+                if (waiting == null || waiting.Length < 2) return null;
+                var g = Game.I;
+                string kind = waiting[1].ToLowerInvariant();
+                if (kind == "reach" && waiting.Length > 2 && g.Level.waypoints.TryGetValue(waiting[2][0], out var pt)) return pt;
+                if (kind == "hide")
+                {
+                    // nearest free box
+                    Vector2? best = null;
+                    float bd = float.MaxValue;
+                    foreach (var it in g.Interactables)
+                        if (it is HideBox b && b.Available && Vector2.Distance(b.Pos, g.Player.Pos) < bd) { bd = Vector2.Distance(b.Pos, g.Player.Pos); best = b.Pos; }
+                    return best;
+                }
+                if (kind == "kill")
+                {
+                    Vector2? best = null;
+                    float bd = float.MaxValue;
+                    foreach (var gd in g.Guards)
+                        if (!gd.Dead && Vector2.Distance(gd.Pos, g.Player.Pos) < bd) { bd = Vector2.Distance(gd.Pos, g.Player.Pos); best = gd.Pos; }
+                    return best;
+                }
+                return null;
+            }
+        }
 
         public void Init(List<string> script, Vector2 start)
         {
@@ -77,7 +107,7 @@ namespace NightShift
                     g.CompleteMission();
                     break;
                 default:
-                    Debug.LogWarning("[NightShift] Unknown script command: " + line);
+                    Debug.LogWarning("[MGS] Unknown script command: " + line);
                     break;
             }
         }
@@ -105,7 +135,7 @@ namespace NightShift
                     waitTimer += Time.deltaTime;
                     return waitTimer >= (w.Length > 2 ? Float(w[2]) : 1f);
                 default:
-                    Debug.LogWarning("[NightShift] Unknown wait: " + string.Join(" ", w));
+                    Debug.LogWarning("[MGS] Unknown wait: " + string.Join(" ", w));
                     return true;
             }
         }

@@ -4,7 +4,7 @@ using UnityEngine;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.SceneManagement;
 
-namespace NightShift.EditorTools
+namespace MobileGearSolid.EditorTools
 {
     /// One-click (or batch-mode) setup: reimports sprites, creates the unlit material,
     /// builds the Game scene and registers it in Build Settings.
@@ -12,7 +12,7 @@ namespace NightShift.EditorTools
     {
         const string ScenePath = "Assets/Scenes/Game.unity";
 
-        [MenuItem("Night Shift/Setup Project (rebuild Game scene)")]
+        [MenuItem("Mobile Gear Solid/Setup Project (rebuild Game scene)")]
         public static void Run()
         {
             AssetDatabase.ImportAsset("Assets/Resources/Sprites", ImportAssetOptions.ImportRecursive | ImportAssetOptions.ForceUpdate);
@@ -49,13 +49,13 @@ namespace NightShift.EditorTools
             EditorSceneManager.SaveScene(scene, ScenePath);
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
 
-            PlayerSettings.productName = "Night Shift";
+            PlayerSettings.productName = "Mobile Gear Solid";
             PlayerSettings.defaultInterfaceOrientation = UIOrientation.LandscapeLeft;
             PlayerSettings.allowedAutorotateToPortrait = false;
             PlayerSettings.allowedAutorotateToPortraitUpsideDown = false;
 
             AssetDatabase.SaveAssets();
-            Debug.Log("[NightShift] Project setup complete: " + ScenePath);
+            Debug.Log("[MGS] Project setup complete: " + ScenePath);
         }
     }
 }

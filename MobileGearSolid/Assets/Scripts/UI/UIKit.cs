@@ -2,7 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace NightShift
+namespace MobileGearSolid
 {
     /// Minimal helpers for building uGUI from code.
     public static class UIKit

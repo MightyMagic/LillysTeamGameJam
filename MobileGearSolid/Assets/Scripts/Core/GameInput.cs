@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-namespace NightShift
+namespace MobileGearSolid
 {
     /// Merges the on-screen controls (joystick + buttons) with keyboard input.
     public static class GameInput

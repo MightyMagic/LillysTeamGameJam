@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
-namespace NightShift
+namespace MobileGearSolid
 {
     /// All screens: main menu, briefing, HUD with touch controls, dialogue, pause, results.
     /// Every visible string comes from Resources/Texts/texts.txt via Loc.
@@ -13,7 +13,7 @@ namespace NightShift
         RectTransform root, menu, briefing, hud, dialog, pause, result;
 
         // HUD widgets
-        Text objectiveText, statusText, timerText, alertText, bannerText, toastText, progressLabel;
+        Text objectiveText, timerText, alertText, bannerText, toastText, progressLabel;
         RectTransform progressRoot;
         Image progressFill;
         TouchButton shootBtn, interactBtn, decoyBtn;
@@ -114,7 +114,7 @@ namespace NightShift
                 bool unlocked = Progress.IsUnlocked(campaign, i);
                 int best = Progress.BestRank(id);
                 string sub = !unlocked ? Loc.T("menu.locked")
-                           : !Progress.IsDone(id) ? Loc.T("menu.not_done")
+                           : !Progress.IsDone(id) ? Loc.T(i == 0 ? "menu.start_here" : "menu.not_done")
                            : Loc.F("menu.best_rank", MissionState.RankName((Rank)best));
                 UIKit.Btn(left, $"{i:00}  {Loc.T(id + ".title")}\n<size=24>{sub}</size>", () => game.StartMission(idx), 34, unlocked).Size(112);
             }
@@ -166,17 +166,63 @@ namespace NightShift
 
         // ------------------------------------------------------------------ HUD
 
+        // HUD v2: big pixel icons, current objective, objective pointer, damage overlay
+        Text missionText, sideText, ammoText, trapText, intelText;
+        Image[] hearts;
+        GameObject keycardIcon, boxHint;
+        RectTransform pointerArrow, pointerMarker;
+        Text pointerDistance;
+        Image damageOverlay;
+        float damageFlash, heartbeatTimer;
+
+        const int MaxHearts = 6;
+        // keep the pointer clear of the panels (top) and the touch controls (bottom / right)
+        const float PointerLeft = 110f, PointerRight = 330f, PointerTop = 230f, PointerBottom = 300f;
+
         void BuildHUD()
         {
-            var objBg = UIKit.Img(hud, "ObjectivesBg", new Color(0, 0, 0, 0.45f));
-            objBg.rectTransform.At(new Vector2(0, 1), new Vector2(0, 1), new Vector2(20, -20), new Vector2(720, 230));
-            objectiveText = UIKit.Label(objBg.transform, "", 28, UIKit.TextCol, TextAnchor.UpperLeft);
-            objectiveText.rectTransform.Fill(16f);
+            // red vignette under everything else in the HUD: hit flash + low-health pulse
+            damageOverlay = UIKit.Img(hud, "DamageOverlay", new Color(1f, 0.05f, 0.03f, 0f), MakeVignette());
+            damageOverlay.rectTransform.Fill();
+            damageOverlay.raycastTarget = false;
 
-            var stBg = UIKit.Img(hud, "StatusBg", new Color(0, 0, 0, 0.45f));
-            stBg.rectTransform.At(new Vector2(1, 1), new Vector2(1, 1), new Vector2(-130, -20), new Vector2(560, 150));
-            statusText = UIKit.Label(stBg.transform, "", 28, UIKit.TextCol, TextAnchor.UpperRight);
-            statusText.rectTransform.Fill(14f);
+            // --- objective panel (top-left)
+            var objBg = UIKit.Img(hud, "ObjectiveBg", new Color(0, 0, 0, 0.6f));
+            objBg.rectTransform.At(new Vector2(0, 1), new Vector2(0, 1), new Vector2(20, -20), new Vector2(760, 246));
+            var accent = UIKit.Img(objBg.transform, "Accent", UIKit.Amber);
+            accent.rectTransform.anchorMin = new Vector2(0, 0);
+            accent.rectTransform.anchorMax = new Vector2(0, 1);
+            accent.rectTransform.offsetMin = Vector2.zero;
+            accent.rectTransform.offsetMax = new Vector2(6, 0);
+            missionText = UIKit.Label(objBg.transform, "", 26, UIKit.Amber, TextAnchor.UpperLeft);
+            missionText.rectTransform.At(new Vector2(0, 1), new Vector2(0, 1), new Vector2(20, -12), new Vector2(720, 34));
+            objectiveText = UIKit.Label(objBg.transform, "", 38, Color.white, TextAnchor.UpperLeft);
+            objectiveText.fontStyle = FontStyle.Bold;
+            objectiveText.rectTransform.At(new Vector2(0, 1), new Vector2(0, 1), new Vector2(20, -48), new Vector2(720, 96));
+            sideText = UIKit.Label(objBg.transform, "", 30, UIKit.Dim, TextAnchor.LowerLeft);
+            sideText.lineSpacing = 1.05f;
+            sideText.rectTransform.At(new Vector2(0, 0), new Vector2(0, 0), new Vector2(20, 12), new Vector2(720, 84));
+
+            // --- status panel (top-right): hearts row + ammo / traps / intel / keycard
+            var stBg = UIKit.Img(hud, "StatusBg", new Color(0, 0, 0, 0.6f));
+            stBg.rectTransform.At(new Vector2(1, 1), new Vector2(1, 1), new Vector2(-126, -20), new Vector2(540, 176));
+            var heartsRow = UIKit.Rect(stBg.transform, "Hearts");
+            heartsRow.At(new Vector2(1, 1), new Vector2(1, 1), new Vector2(-16, -12), new Vector2(510, 72));
+            hearts = new Image[MaxHearts];
+            for (int i = 0; i < MaxHearts; i++)
+            {
+                hearts[i] = UIKit.Img(heartsRow, "Heart", Color.white, Art.S("ui_heart"));
+                hearts[i].rectTransform.At(new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(-i * 76, 0), new Vector2(72, 72));
+                hearts[i].raycastTarget = false;
+            }
+            var counters = UIKit.Rect(stBg.transform, "Counters");
+            counters.At(new Vector2(1, 0), new Vector2(1, 0), new Vector2(-16, 12), new Vector2(510, 72));
+            float x = 0;
+            intelText = Counter(counters, "item_intel", ref x);
+            trapText = Counter(counters, "item_trap", ref x);
+            ammoText = Counter(counters, "ui_ammo", ref x);
+            keycardIcon = UIKit.Img(counters, "Keycard", Color.white, Art.S("item_keycard")).gameObject;
+            keycardIcon.GetComponent<Image>().rectTransform.At(new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(-x, 0), new Vector2(64, 64));
 
             var pauseBtn = UIKit.Btn(hud, "II", game.Pause, 40);
             pauseBtn.GetComponent<RectTransform>().At(new Vector2(1, 1), new Vector2(1, 1), new Vector2(-20, -20), new Vector2(90, 90));
@@ -190,6 +236,20 @@ namespace NightShift
             bannerText.rectTransform.At(new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -140), new Vector2(1300, 60));
             toastText = UIKit.Label(hud, "", 34, UIKit.Green, TextAnchor.MiddleCenter);
             toastText.rectTransform.At(new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 330), new Vector2(1100, 50));
+            boxHint = UIKit.Label(hud, Loc.T("hud.in_box"), 30, UIKit.Amber, TextAnchor.MiddleCenter).gameObject;
+            boxHint.GetComponent<RectTransform>().At(new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 390), new Vector2(1100, 44));
+
+            // --- objective pointer: marker over the target when visible, edge arrow when off-screen
+            pointerMarker = UIKit.Img(hud, "ObjectiveMarker", Color.white, Art.S("ui_target")).rectTransform;
+            pointerMarker.sizeDelta = new Vector2(56, 56);
+            pointerMarker.GetComponent<Image>().raycastTarget = false;
+            pointerArrow = UIKit.Img(hud, "ObjectiveArrow", Color.white, Art.S("ui_arrow")).rectTransform;
+            pointerArrow.sizeDelta = new Vector2(80, 80);
+            pointerArrow.GetComponent<Image>().raycastTarget = false;
+            pointerDistance = UIKit.Label(hud, "", 26, new Color(1f, 0.85f, 0.3f), TextAnchor.MiddleCenter);
+            pointerDistance.rectTransform.sizeDelta = new Vector2(160, 36);
+            foreach (var rt in new[] { pointerMarker, pointerArrow, pointerDistance.rectTransform })
+                rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 0.5f);
 
             progressRoot = UIKit.Img(hud, "Progress", new Color(0, 0, 0, 0.7f)).rectTransform
                 .At(new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 240), new Vector2(620, 34));
@@ -208,6 +268,39 @@ namespace NightShift
             decoyBtn = TouchButton.Create(root, "ui_decoy", Loc.T("key.trap"), new Vector2(-150, 420), 140, GameInput.PressDecoy);
         }
 
+        /// Icon + big number, laid out right-to-left inside `parent`.
+        static Text Counter(RectTransform parent, string sprite, ref float x)
+        {
+            var value = UIKit.Label(parent, "0", 44, Color.white, TextAnchor.MiddleLeft);
+            value.fontStyle = FontStyle.Bold;
+            value.rectTransform.At(new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(-x, 0), new Vector2(84, 64));
+            var icon = UIKit.Img(parent, "Icon", Color.white, Art.S(sprite));
+            icon.rectTransform.At(new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(-x - 88, 0), new Vector2(64, 64));
+            icon.raycastTarget = false;
+            x += 170;
+            return value;
+        }
+
+        static Sprite MakeVignette()
+        {
+            const int n = 128;
+            var tex = new Texture2D(n, n, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
+            var px = new Color32[n * n];
+            for (int y = 0; y < n; y++)
+                for (int xx = 0; xx < n; xx++)
+                {
+                    float dx = (xx + 0.5f) / n * 2f - 1f, dy = (y + 0.5f) / n * 2f - 1f;
+                    float d = Mathf.Sqrt(dx * dx * 0.8f + dy * dy * 1.1f);
+                    float a = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.62f, 1.35f, d));
+                    px[y * n + xx] = new Color32(255, 255, 255, (byte)(a * 255));
+                }
+            tex.SetPixels32(px);
+            tex.Apply();
+            return Sprite.Create(tex, new Rect(0, 0, n, n), new Vector2(0.5f, 0.5f), 100f);
+        }
+
+        public void OnPlayerHurt() => damageFlash = 1f;
+
         public void ShowHUD() => Show(hud);
 
         /// Blinks one action button: "shoot", "interact", "trap" (or null to stop).
@@ -223,35 +316,39 @@ namespace NightShift
             var m = game.Mission;
             var p = game.Player;
             if (m == null || p == null) return;
+            float dt = Time.unscaledDeltaTime;
 
-            var sb = new StringBuilder();
-            sb.Append($"<color=#ffd060>{game.MissionIndex:00} · {m.def.Title}</color>\n");
-            if (m.def.tutorial || m.scriptObjective != null)
-            {
-                if (m.scriptObjective != null) sb.Append($"<color=#ffffff>□ {m.scriptObjective}</color>\n");
-            }
+            // objective: only the current goal, big; side contracts small underneath
+            missionText.text = $"{game.MissionIndex:00} · {m.def.Title}";
+            if (m.def.tutorial || m.scriptObjective != null) objectiveText.text = m.scriptObjective ?? "";
             else
             {
-                var current = m.Current;
-                foreach (var o in m.def.objectives)
-                {
-                    bool done = m.IsDone(o);
-                    string col = done ? "#7a8a7e" : o == current ? "#ffffff" : "#9aa89e";
-                    sb.Append($"<color={col}>{(done ? "■" : "□")} {LevelDef.ObjectiveLabel(o)}</color>\n");
-                }
+                int idx = System.Array.IndexOf(m.def.objectives, m.Current) + 1;
+                objectiveText.text = $"<color=#ffd060>{idx}/{m.def.objectives.Length}</color>  {LevelDef.ObjectiveLabel(m.Current)}";
             }
+            var sb = new StringBuilder();
             foreach (var s in m.def.sides)
             {
                 bool ok = m.SideDone(s);
-                sb.Append($"<size=22><color={(ok ? "#8fe39a" : "#e36a5a")}>{(ok ? "+" : "×")} {s.Label}</color></size>\n");
+                if (sb.Length > 0) sb.Append('\n');
+                sb.Append($"<color={(ok ? "#8fe39a" : "#e36a5a")}>{(ok ? "+" : "×")} {s.Label}</color>");
             }
-            objectiveText.text = sb.ToString();
+            sideText.text = sb.ToString();
 
-            var hp = new StringBuilder();
-            for (int i = 0; i < p.maxHp; i++) hp.Append(i < p.hp ? "■" : "□");
-            statusText.text = Loc.F("hud.status", hp, p.ammo, p.decoys, m.intel, m.intelTotal)
-                + (m.hasKeycard ? "   <color=#ff9a8a>" + Loc.T("hud.keycard") + "</color>" : "")
-                + (p.InBox ? "\n<color=#ffd060>" + Loc.T("hud.in_box") + "</color>" : "");
+            // status icons
+            for (int i = 0; i < MaxHearts; i++)
+            {
+                hearts[i].enabled = i < p.maxHp;
+                // fill from the left: index 0 is the rightmost slot, so mirror it
+                int slot = p.maxHp - 1 - i;
+                hearts[i].sprite = Art.S(slot < p.hp ? "ui_heart" : "ui_heart_empty");
+            }
+            ammoText.text = p.ammo.ToString();
+            ammoText.color = p.ammo == 0 ? UIKit.Red : Color.white;
+            trapText.text = p.decoys.ToString();
+            intelText.text = $"{m.intel}/{m.intelTotal}";
+            keycardIcon.SetActive(m.hasKeycard);
+            boxHint.SetActive(p.InBox);
 
             timerText.text = UIKit.Time(m.time);
 
@@ -267,7 +364,6 @@ namespace NightShift
             }
             else alertText.text = "";
 
-            float dt = Time.unscaledDeltaTime;
             bannerTime -= dt;
             bannerText.enabled = bannerTime > 0f;
             if (bannerTime < 0.5f) bannerText.color = new Color(bannerText.color.r, bannerText.color.g, bannerText.color.b, Mathf.Clamp01(bannerTime * 2f));
@@ -281,6 +377,87 @@ namespace NightShift
             shootBtn.SetActive(p.ammo > 0 && !p.InBox);
             shootBtn.caption.text = p.Target != null ? "<color=#ff6a5a>" + Loc.T("hud.target") + "</color>" : "";
             decoyBtn.SetActive(p.decoys > 0 && !p.InBox);
+
+            UpdateDamageOverlay(p, dt);
+            UpdatePointer(p);
+        }
+
+        void UpdateDamageOverlay(Player p, float dt)
+        {
+            damageFlash = Mathf.Max(0f, damageFlash - dt * 1.8f);
+            float pulse = 0f;
+            if (p.hp == 1 && !p.dead)
+            {
+                // heartbeat: two quick pulses per beat
+                heartbeatTimer -= dt;
+                if (heartbeatTimer <= 0f)
+                {
+                    heartbeatTimer = 0.95f;
+                    Sfx.Play("heart", 0.9f);
+                }
+                float t = 0.95f - heartbeatTimer;
+                pulse = 0.3f * Mathf.Exp(-t * 9f) + 0.2f * Mathf.Exp(-Mathf.Max(0f, t - 0.18f) * 9f) * (t > 0.18f ? 1f : 0f) + 0.12f;
+            }
+            else heartbeatTimer = 0f;
+            var c = damageOverlay.color;
+            c.a = Mathf.Clamp01(damageFlash * 0.6f + pulse);
+            damageOverlay.color = c;
+
+            // hearts throb with the heartbeat
+            float s = p.hp == 1 ? 1f + pulse * 0.4f : 1f;
+            foreach (var h in hearts) h.rectTransform.localScale = new Vector3(s, s, 1f);
+        }
+
+        void UpdatePointer(Player p)
+        {
+            var target = game.ObjectiveTarget();
+            var cam = Camera.main;
+            bool show = target.HasValue && cam != null;
+            if (!show)
+            {
+                pointerArrow.gameObject.SetActive(false);
+                pointerMarker.gameObject.SetActive(false);
+                pointerDistance.gameObject.SetActive(false);
+                return;
+            }
+
+            Vector2 world = target.Value;
+            Vector3 sp = cam.WorldToScreenPoint(world + Vector2.up * 1.1f);
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(hud, sp, null, out var local);
+            var r = hud.rect;
+            var inner = new Rect(r.xMin + PointerLeft, r.yMin + PointerBottom, r.width - PointerLeft - PointerRight, r.height - PointerTop - PointerBottom);
+            float dist = Vector2.Distance(p.Pos, world);
+            pointerDistance.gameObject.SetActive(true);
+            pointerDistance.text = Loc.F("hud.distance", Mathf.RoundToInt(dist));
+
+            if (sp.z > 0 && inner.Contains(local))
+            {
+                // target on screen: bobbing marker over it
+                pointerArrow.gameObject.SetActive(false);
+                pointerMarker.gameObject.SetActive(dist > 1.2f);
+                pointerDistance.gameObject.SetActive(dist > 1.2f);
+                float bob = Mathf.Sin(Time.unscaledTime * 5f) * 8f;
+                pointerMarker.anchoredPosition = local + new Vector2(0, 20 + bob) - r.center;
+                pointerDistance.rectTransform.anchoredPosition = local + new Vector2(0, 66 + bob) - r.center;
+                return;
+            }
+
+            // off-screen: arrow on the screen edge pointing at the target
+            pointerMarker.gameObject.SetActive(false);
+            pointerArrow.gameObject.SetActive(true);
+            Vector2 c = inner.center;
+            Vector2 dir = (local - c);
+            if (sp.z < 0) dir = -dir;
+            if (dir.sqrMagnitude < 1f) dir = Vector2.up;
+            float k = Mathf.Min(
+                Mathf.Abs(dir.x) > 0.01f ? inner.width * 0.5f / Mathf.Abs(dir.x) : float.MaxValue,
+                Mathf.Abs(dir.y) > 0.01f ? inner.height * 0.5f / Mathf.Abs(dir.y) : float.MaxValue);
+            Vector2 edge = c + dir * k;
+            float pulse = 1f + Mathf.Sin(Time.unscaledTime * 6f) * 0.08f;
+            pointerArrow.anchoredPosition = edge - r.center;
+            pointerArrow.localRotation = Quaternion.Euler(0, 0, Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg);
+            pointerArrow.localScale = new Vector3(pulse, pulse, 1f);
+            pointerDistance.rectTransform.anchoredPosition = edge - dir.normalized * 70f - r.center;
         }
 
         public void SetProgress(float value, string label)

@@ -1,7 +1,7 @@
-# Файл уровня Night Shift. Полное описание формата — в LEVELS.md в корне проекта.
+# Файл уровня Mobile Gear Solid. Полное описание формата — в LEVELS.md в корне проекта.
 # Тексты (название, брифинг, угрозы) лежат в Assets/Resources/Texts/texts.txt
 # под ключами <id>.title / <id>.brief / <id>.threats, где id = имя этого файла.
-# Удобнее всего редактировать карту в Unity: меню Night Shift > Level Editor.
+# Удобнее всего редактировать карту в Unity: меню Mobile Gear Solid > Level Editor.
 
 [mission]
 objectives = keycard, extract

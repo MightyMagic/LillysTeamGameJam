@@ -1,4 +1,4 @@
-# Night Shift — уровни, сценарии и тексты
+# Mobile Gear Solid — уровни, сценарии и тексты
 
 Всё содержимое игры лежит в обычных текстовых файлах. Unity перечитывает их при каждом запуске Play.
 
@@ -7,7 +7,7 @@
 | Все тексты игры (меню, HUD, подсказки, реплики) | `Assets/Resources/Texts/texts.txt` |
 | Уровни (по одному файлу на миссию) | `Assets/Resources/Levels/<id>.txt` |
 | Порядок миссий в меню | `Assets/Resources/Levels/campaign.txt` |
-| Визуальный редактор уровней | Unity → меню **Night Shift → Level Editor** |
+| Визуальный редактор уровней | Unity → меню **Mobile Gear Solid → Level Editor** |
 | Пиксель-арт (генерируется скриптом) | `Tools/gen_art.py` → `Assets/Resources/Sprites` |
 
 ## Тексты — `texts.txt`
@@ -81,7 +81,7 @@ tutorial = false                  # true: без брифинга, поимка 
 
 ## Как добавить новую миссию
 
-1. **Night Shift → Level Editor → Новый** (или скопируй любой `.txt` в `Levels`).
+1. **Mobile Gear Solid → Level Editor → Новый** (или скопируй любой `.txt` в `Levels`).
 2. Нарисуй карту: ЛКМ — кисть, ПКМ — пипетка. Справа видно, всё ли достижимо.
 3. Впиши имя файла в `campaign.txt`, а тексты `<id>.title / .brief / .threats` — в `texts.txt`.
 4. **▶ Сохранить и играть** — запустит Play сразу с этим уровнем.

@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace NightShift
+namespace MobileGearSolid
 {
     /// Noise trap placed at the player's feet: it ticks for a moment, then goes off twice,
     /// pulling nearby guards to investigate — place it and run.

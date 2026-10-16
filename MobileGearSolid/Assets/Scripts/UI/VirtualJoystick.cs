@@ -2,7 +2,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-namespace NightShift
+namespace MobileGearSolid
 {
     /// Floating left-thumb stick: appears where the touch starts inside its zone.
     public class VirtualJoystick : MonoBehaviour, IPointerDownHandler, IDragHandler, IPointerUpHandler

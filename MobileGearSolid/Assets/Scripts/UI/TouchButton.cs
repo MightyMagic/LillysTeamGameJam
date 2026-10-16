@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-namespace NightShift
+namespace MobileGearSolid
 {
     /// Round action button that fires on press (not release) for responsive mobile controls.
     /// When highlighted (tutorial) it pulses amber to show what to press next.

@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace NightShift
+namespace MobileGearSolid
 {
     /// Tiny procedural chiptune sound set, so the prototype needs no audio assets.
     public static class Sfx
@@ -50,6 +50,14 @@ namespace NightShift
             Add("kill", 0.18f, t => (Noise() * 0.3f + Mathf.Sin(2 * Mathf.PI * 90 * t) * 0.5f) * Fade(t, 0, 0.18f));
             Add("empty", 0.06f, t => Sq(300, t) * 0.25f);
             Add("blip", 0.025f, t => Sq(940, t) * 0.08f);
+            // low-health heartbeat: "lub-dub"
+            Add("heart", 0.42f, t =>
+            {
+                float a = Mathf.Sin(2 * Mathf.PI * 58f * t) * Mathf.Exp(-t * 22f);
+                float t2 = t - 0.18f;
+                float b = t2 < 0 ? 0f : Mathf.Sin(2 * Mathf.PI * 50f * t2) * 0.7f * Mathf.Exp(-t2 * 22f);
+                return (a + b) * 0.9f;
+            });
             Add("codec", 0.5f, t => Sq(Mathf.Repeat(t, 0.125f) < 0.0625f ? 1480 : 1975, t) * 0.18f * Fade(t, 0.3f, 0.5f));
             Add("click", 0.05f, t => Sq(700, t) * 0.25f * Fade(t, 0, 0.05f));
             Add("success", 0.6f, t => Sq(t < 0.15f ? 523 : t < 0.3f ? 659 : 784, t) * 0.3f * Fade(t, 0.3f, 0.6f));

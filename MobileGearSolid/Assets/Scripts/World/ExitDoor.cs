@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace NightShift
+namespace MobileGearSolid
 {
     /// Extraction point. Locked until every non-extract objective is done.
     public class ExitDoor : Interactable

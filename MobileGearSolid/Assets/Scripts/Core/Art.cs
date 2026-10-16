@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace NightShift
+namespace MobileGearSolid
 {
     /// Cached access to generated sprites (Assets/Resources/Sprites) and shared materials.
     public static class Art
@@ -14,7 +14,7 @@ namespace NightShift
         {
             if (cache.TryGetValue(name, out var s)) return s;
             s = Resources.Load<Sprite>("Sprites/" + name);
-            if (s == null) Debug.LogWarning("[NightShift] Missing sprite: " + name);
+            if (s == null) Debug.LogWarning("[MGS] Missing sprite: " + name);
             cache[name] = s;
             return s;
         }

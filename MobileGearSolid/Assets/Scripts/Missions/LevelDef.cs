@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using UnityEngine;
 
-namespace NightShift
+namespace MobileGearSolid
 {
     public enum ObjectiveKind { GetKeycard, CutPower, DownloadData, GetPrototype, Extract }
     public enum SideKind { NoKills, NoAlerts, AllIntel, IntelAtLeast, TimeLimit }
@@ -91,7 +91,7 @@ namespace NightShift
             var asset = Resources.Load<TextAsset>("Levels/" + id);
             if (asset == null)
             {
-                Debug.LogError("[NightShift] Level not found: Resources/Levels/" + id + ".txt");
+                Debug.LogError("[MGS] Level not found: Resources/Levels/" + id + ".txt");
                 return null;
             }
             return Parse(id, asset.text);
@@ -154,7 +154,7 @@ namespace NightShift
                             case "data": list.Add(ObjectiveKind.DownloadData); break;
                             case "prototype": list.Add(ObjectiveKind.GetPrototype); break;
                             case "extract": list.Add(ObjectiveKind.Extract); break;
-                            default: Debug.LogWarning("[NightShift] Unknown objective: " + p); break;
+                            default: Debug.LogWarning("[MGS] Unknown objective: " + p); break;
                         }
                     }
                     if (!list.Contains(ObjectiveKind.Extract)) list.Add(ObjectiveKind.Extract);
@@ -176,7 +176,7 @@ namespace NightShift
                             case "intel": list.Add(new SideTask(SideKind.IntelAtLeast, arg)); break;
                             case "time": list.Add(new SideTask(SideKind.TimeLimit, arg)); break;
                             case "": break;
-                            default: Debug.LogWarning("[NightShift] Unknown side task: " + p); break;
+                            default: Debug.LogWarning("[MGS] Unknown side task: " + p); break;
                         }
                     }
                     def.sides = list.ToArray();

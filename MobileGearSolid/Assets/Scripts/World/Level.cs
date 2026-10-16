@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.Rendering.Universal;
 using UnityEngine.Tilemaps;
 
-namespace NightShift
+namespace MobileGearSolid
 {
     /// Builds a level from the [map] section of a level file and owns grid queries,
     /// pathfinding and the power state. The legend below is shared with the Level Editor window.
@@ -29,7 +29,7 @@ namespace NightShift
         readonly List<Light2D> emergency = new List<Light2D>();
         readonly Dictionary<string, Tile> tiles = new Dictionary<string, Tile>();
 
-        /// Map legend: character, editor colour, description (shown in Night Shift > Level Editor).
+        /// Map legend: character, editor colour, description (shown in Mobile Gear Solid > Level Editor).
         public static readonly (char ch, Color color, string label)[] Legend =
         {
             (' ', new Color(0, 0, 0), "пусто (за пределами)"),

@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace NightShift
+namespace MobileGearSolid
 {
     /// Server terminal: data can only be pulled while the facility is on emergency power.
     /// The download continues while the player stays close.
@@ -24,6 +24,7 @@ namespace NightShift
         }
 
         public override bool Available => required && !Game.I.Mission.dataDownloaded && !downloading;
+        public bool IsObjective => required && !Game.I.Mission.dataDownloaded;
 
         public override string Prompt => Game.I.Level.PowerOn ? Loc.T("prompt.terminal_locked") : Loc.T("prompt.terminal");
 

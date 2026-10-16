@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
 
-namespace NightShift
+namespace MobileGearSolid
 {
     public enum GuardState { Patrol, Suspicious, Search, Alert, CheckPanel, Dead }
 

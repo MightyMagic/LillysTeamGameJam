@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace NightShift
+namespace MobileGearSolid
 {
     /// Runtime state of one mission attempt: objectives, alarms, loot, stats.
     public class MissionState

@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace NightShift
+namespace MobileGearSolid
 {
     /// Keycard door. Blocks movement, sight and guard paths while closed.
     public class LockedDoor : Interactable

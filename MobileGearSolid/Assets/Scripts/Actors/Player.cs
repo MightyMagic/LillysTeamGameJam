@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace NightShift
+namespace MobileGearSolid
 {
     /// The hero: free 8-way movement, close-range silenced pistol with auto-targeting,
     /// context interaction, the cardboard box and placeable noise traps.
@@ -51,6 +51,8 @@ namespace NightShift
             var col = go.AddComponent<CircleCollider2D>();
             col.radius = 0.28f;
             col.offset = new Vector2(0, 0.22f);
+            // no friction: slide along walls instead of sticking when pushing diagonally into them
+            col.sharedMaterial = new PhysicsMaterial2D("PlayerSlide") { friction = 0f, bounciness = 0f };
             p.sr = go.AddComponent<SpriteRenderer>();
             p.anim = new CharAnim("player");
             p.hp = p.maxHp = hp;
@@ -249,6 +251,7 @@ namespace NightShift
             invuln = 0.7f;
             Sfx.Play("hurt");
             Game.I.Shake(0.25f);
+            Game.I.UI.OnPlayerHurt();
             if (hp <= 0)
             {
                 hp = 0;

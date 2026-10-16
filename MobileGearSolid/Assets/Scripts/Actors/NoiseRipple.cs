@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace NightShift
+namespace MobileGearSolid
 {
     /// Expanding ring that shows how far a noise carried, so players learn the hearing radius.
     public class NoiseRipple : MonoBehaviour

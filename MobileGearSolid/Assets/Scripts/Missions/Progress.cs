@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace NightShift
+namespace MobileGearSolid
 {
     public enum Upgrade { Magazine, Decoy, Armor }
 

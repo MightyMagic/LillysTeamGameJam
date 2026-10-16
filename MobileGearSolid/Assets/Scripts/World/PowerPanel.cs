@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace NightShift
+namespace MobileGearSolid
 {
     /// Sabotage target (GDD §4D): cutting power kills lamps and cameras for a while,
     /// but a guard is sent to check the panel and switch it back on.

@@ -5,7 +5,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
 using UnityEngine.Rendering.Universal;
 
-namespace NightShift
+namespace MobileGearSolid
 {
     /// Entry point. Lives in the Game scene and drives menu -> briefing -> mission -> result.
     /// Missions come from Resources/Levels (campaign.txt lists the order), texts from Resources/Texts.
@@ -89,9 +89,6 @@ namespace NightShift
                 if (i < 0) { Campaign.Add(debugLevel); i = Campaign.Count - 1; }
                 StartMission(i);
             }
-            // first launch: drop straight into the tutorial (FTUE)
-            else if (Campaign.Count > 0 && !Progress.IsDone(Campaign[0]) && LevelDef.Load(Campaign[0])?.tutorial == true)
-                StartMission(0);
             else ShowMenu();
         }
 
@@ -142,7 +139,7 @@ namespace NightShift
                 foreach (char c in gd.waypoints)
                 {
                     if (Level.waypoints.TryGetValue(c, out var p)) pts.Add(p);
-                    else Debug.LogWarning($"[NightShift] {Def.id}: waypoint '{c}' not found on the map");
+                    else Debug.LogWarning($"[MGS] {Def.id}: waypoint '{c}' not found on the map");
                 }
                 if (pts.Count > 0) Guards.Add(Guard.Spawn(Level, pts, gd));
             }
@@ -428,5 +425,36 @@ namespace NightShift
         }
 
         public void Toast(string text) => UI.Toast(text);
+
+        /// World position the HUD pointer should lead to: the current main objective,
+        /// or (in scripted levels) the marker the script is waiting for. Null = nothing to show.
+        public Vector2? ObjectiveTarget()
+        {
+            if (Mission == null || Level == null) return null;
+            if (Def.tutorial || Mission.scriptObjective != null) return Script != null ? Script.Target : null;
+            var cur = Mission.Current;
+            foreach (var it in Interactables)
+            {
+                switch (cur)
+                {
+                    case ObjectiveKind.GetKeycard:
+                        if (it is Pickup k && k.kind == PickupKind.Keycard && k.Available) return k.Pos;
+                        break;
+                    case ObjectiveKind.GetPrototype:
+                        if (it is Pickup pr && pr.kind == PickupKind.Prototype && pr.Available) return pr.Pos;
+                        break;
+                    case ObjectiveKind.CutPower:
+                        if (it is PowerPanel pp) return pp.Pos;
+                        break;
+                    case ObjectiveKind.DownloadData:
+                        if (it is DataTerminal t && t.IsObjective) return t.Pos;
+                        break;
+                    case ObjectiveKind.Extract:
+                        if (it is ExitDoor e) return e.Pos;
+                        break;
+                }
+            }
+            return null;
+        }
     }
 }

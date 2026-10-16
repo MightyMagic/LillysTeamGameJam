@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace NightShift
+namespace MobileGearSolid
 {
     /// All player-facing text lives in Assets/Resources/Texts/texts.txt as "key = value" lines.
     /// Use \n inside a value for a line break and {0}, {1}... for inserted values.
@@ -15,7 +15,7 @@ namespace NightShift
             var asset = Resources.Load<TextAsset>("Texts/texts");
             if (asset == null)
             {
-                Debug.LogError("[NightShift] Resources/Texts/texts.txt not found");
+                Debug.LogError("[MGS] Resources/Texts/texts.txt not found");
                 return;
             }
             foreach (var raw in asset.text.Replace("\r", "").Split('\n'))
@@ -43,7 +43,7 @@ namespace NightShift
         {
             if (table == null) Load();
             if (table.TryGetValue(key, out var v)) return v;
-            Debug.LogWarning("[NightShift] Missing text key: " + key);
+            Debug.LogWarning("[MGS] Missing text key: " + key);
             return "#" + key;
         }
 

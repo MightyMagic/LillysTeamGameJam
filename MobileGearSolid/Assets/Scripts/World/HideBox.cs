@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.Rendering.Universal;
 
-namespace NightShift
+namespace MobileGearSolid
 {
     /// The legendary cardboard box. Climb in with the action button: cameras ignore the box,
     /// guards don't notice it while it stands still, and only grow suspicious when it moves.

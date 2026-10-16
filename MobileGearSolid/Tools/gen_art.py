@@ -1,4 +1,4 @@
-"""Procedural pixel-art generator for PROJECT: NIGHT SHIFT prototype.
+"""Procedural pixel-art generator for MOBILE GEAR SOLID prototype.
 
 Writes PNG sprites into Assets/Resources/Sprites. Run from anywhere:
     python Tools/gen_art.py
@@ -873,6 +873,57 @@ def ui_icons():
     c.save("ui_disc")
 
 
+
+# ---------------------------------------------------------------- HUD pixel icons (16x16, shown scaled up)
+HEART = ["..XX....XX..",
+         ".XXXX..XXXX.",
+         "XXXXXXXXXXXX",
+         "XXXXXXXXXXXX",
+         "XXXXXXXXXXXX",
+         ".XXXXXXXXXX.",
+         "..XXXXXXXX..",
+         "...XXXXXX...",
+         "....XXXX....",
+         ".....XX....."]
+
+
+def hud_icons():
+    for name, col, hi in (("ui_heart", (226, 52, 48), (255, 150, 140)), ("ui_heart_empty", (60, 30, 32), (90, 50, 52))):
+        c = C(16, 16)
+        for y, row in enumerate(HEART):
+            for x, ch in enumerate(row):
+                if ch == "X":
+                    c.set(x + 2, y + 3, col)
+        c.rect(4, 4, 2, 2, hi)
+        c.set(6, 4, hi)
+        c.outline((10, 4, 4))
+        c.save(name)
+    c = C(16, 16)  # ammo: three cartridges
+    for i, x in enumerate((3, 7, 11)):
+        c.rect(x, 6, 3, 8, (196, 150, 60))        # brass case
+        c.vline(x, 6, 8, (236, 196, 110))
+        c.rect(x, 2, 3, 4, (150, 150, 158))       # bullet
+        c.set(x + 1, 1, (190, 190, 198))
+        c.hline(x, 12, 3, (130, 96, 40))
+    c.outline()
+    c.save("ui_ammo")
+    c = C(16, 16)  # objective pointer arrow (points right)
+    for x in range(12):
+        h = 6 - abs(x - 6) if x > 6 else 2
+        if x <= 6:
+            c.rect(x + 1, 6, 1, 4, (255, 214, 72))
+        else:
+            c.rect(x + 1, 8 - (12 - x), 1, 2 * (12 - x), (255, 214, 72))
+    c.outline((60, 40, 0))
+    c.save("ui_arrow")
+    c = C(16, 16)  # objective marker above the target (points down)
+    for y in range(7):
+        c.rect(2 + y, 3 + y, 12 - 2 * y, 1, (255, 214, 72))
+    c.rect(6, 0, 4, 3, (255, 214, 72))
+    c.outline((60, 40, 0))
+    c.save("ui_target")
+
+
 # ---------------------------------------------------------------- run
 floor_tile("tile_floor_0", 1, 0)
 floor_tile("tile_floor_1", 2, 1)
@@ -920,6 +971,7 @@ hide_box()
 small("item_trap", trap_item)
 character("guard", GUARD, False)
 ui_icons()
+hud_icons()
 
 # contact sheet for quick review (not imported: written outside Assets)
 files = sorted(f for f in os.listdir(OUT) if f.endswith(".png"))

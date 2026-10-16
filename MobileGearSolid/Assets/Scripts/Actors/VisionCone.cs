@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace NightShift
+namespace MobileGearSolid
 {
     /// Readable vision sector clipped by walls/props (raycast fan mesh drawn on the floor).
     public class VisionCone : MonoBehaviour
