@@ -25,14 +25,14 @@ namespace NightShift
         }
 
         public override bool Available => !IsOpen;
-        public override string Prompt => Game.I.Mission.hasKeycard ? "Открыть дверь" : "Нужен пропуск";
+        public override string Prompt => Game.I.Mission.hasKeycard ? Loc.T("prompt.door") : Loc.T("prompt.door_locked");
 
         public override void Interact(Player p)
         {
             if (IsOpen) return;
             if (!Game.I.Mission.hasKeycard)
             {
-                Game.I.Toast("Заперто. Нужен пропуск");
+                Game.I.Toast(Loc.T("toast.door_locked"));
                 Sfx.Play("empty");
                 return;
             }

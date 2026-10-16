@@ -23,7 +23,7 @@ namespace NightShift
         }
 
         public override bool Available => level.PowerOn;
-        public override string Prompt => "Отключить щит";
+        public override string Prompt => Loc.T("prompt.panel");
 
         public override void Interact(Player p)
         {

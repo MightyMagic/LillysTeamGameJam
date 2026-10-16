@@ -28,7 +28,7 @@ namespace NightShift
             }
 
             string spr = k == PickupKind.Keycard ? "item_keycard" : k == PickupKind.Intel ? "item_intel"
-                       : k == PickupKind.Ammo ? "item_ammo" : k == PickupKind.Medkit ? "item_medkit" : "item_decoy";
+                       : k == PickupKind.Ammo ? "item_ammo" : k == PickupKind.Medkit ? "item_medkit" : "item_trap";
             sr = Art.MakeSprite(transform, "Item", spr, pos, Art.OrderFloorItems);
             if (!autoPickup) SetupMarker(0.55f, k == PickupKind.Keycard ? new Color(1f, 0.6f, 0.5f) : new Color(0.5f, 1f, 1f));
         }
@@ -41,10 +41,10 @@ namespace NightShift
             {
                 switch (kind)
                 {
-                    case PickupKind.Keycard: return "Взять пропуск";
-                    case PickupKind.Intel: return "Забрать документы";
-                    case PickupKind.Prototype: return "Забрать прототип";
-                    default: return "Подобрать";
+                    case PickupKind.Keycard: return Loc.T("prompt.keycard");
+                    case PickupKind.Intel: return Loc.T("prompt.intel");
+                    case PickupKind.Prototype: return Loc.T("prompt.prototype");
+                    default: return Loc.T("prompt.pickup");
                 }
             }
         }
@@ -57,28 +57,28 @@ namespace NightShift
             {
                 case PickupKind.Keycard:
                     m.hasKeycard = true;
-                    Game.I.Toast("Пропуск получен");
+                    Game.I.Toast(Loc.T("toast.keycard"));
                     break;
                 case PickupKind.Intel:
                     m.intel++;
-                    Game.I.Toast($"Разведданные {m.intel}/{m.intelTotal}");
+                    Game.I.Toast(Loc.F("toast.intel", m.intel, m.intelTotal));
                     break;
                 case PickupKind.Prototype:
                     m.hasPrototype = true;
-                    Game.I.Toast("Прототип у тебя. Уходи!");
+                    Game.I.Toast(Loc.T("toast.prototype"));
                     break;
                 case PickupKind.Ammo:
                     p.ammo += 4;
-                    Game.I.Toast("+4 патрона");
+                    Game.I.Toast(Loc.F("toast.ammo", 4));
                     break;
                 case PickupKind.Medkit:
                     if (p.hp >= p.maxHp) return; // leave it for later
                     p.hp = Mathf.Min(p.maxHp, p.hp + 2);
-                    Game.I.Toast("Аптечка: +2 здоровья");
+                    Game.I.Toast(Loc.F("toast.medkit", 2));
                     break;
                 case PickupKind.Decoy:
                     p.decoys++;
-                    Game.I.Toast("+1 шумовая приманка");
+                    Game.I.Toast(Loc.T("toast.trap"));
                     break;
             }
             taken = true;

@@ -25,13 +25,13 @@ namespace NightShift
 
         public override bool Available => required && !Game.I.Mission.dataDownloaded && !downloading;
 
-        public override string Prompt => Game.I.Level.PowerOn ? "Терминал (защита)" : "Скачать данные";
+        public override string Prompt => Game.I.Level.PowerOn ? Loc.T("prompt.terminal_locked") : Loc.T("prompt.terminal");
 
         public override void Interact(Player p)
         {
             if (Game.I.Level.PowerOn)
             {
-                Game.I.Toast("Защита активна: сначала отключи питание");
+                Game.I.Toast(Loc.T("toast.terminal_locked"));
                 Sfx.Play("empty");
                 return;
             }
@@ -57,16 +57,16 @@ namespace NightShift
                     progress = 1f;
                     downloading = false;
                     Game.I.Mission.dataDownloaded = true;
-                    Game.I.Toast("Данные скачаны!");
+                    Game.I.Toast(Loc.T("toast.data_done"));
                     Sfx.Play("success", 0.7f);
                 }
             }
             if (!powerOff && downloading)
             {
                 downloading = false;
-                Game.I.Toast("Питание вернули — загрузка прервана");
+                Game.I.Toast(Loc.T("toast.data_interrupted"));
             }
-            Game.I.UI.SetProgress(downloading ? progress : -1f, near ? "Загрузка данных..." : "Вернись к терминалу!");
+            Game.I.UI.SetProgress(downloading ? progress : -1f, near ? Loc.T("progress.download") : Loc.T("progress.return"));
         }
     }
 }

@@ -15,7 +15,7 @@ namespace NightShift
             glow = Level.MakeLight(transform, pos + Vector2.down * 0.6f, new Color(0.3f, 1f, 0.45f), 0.8f, 3.5f);
         }
 
-        public override string Prompt => Game.I.Mission.ReadyToExtract ? "Эвакуироваться" : "Выход заблокирован";
+        public override string Prompt => Game.I.Mission.ReadyToExtract ? Loc.T("prompt.exit") : Loc.T("prompt.exit_locked");
 
         public override void Interact(Player p)
         {
@@ -24,7 +24,7 @@ namespace NightShift
                 Game.I.CompleteMission();
                 return;
             }
-            Game.I.Toast("Сначала: " + MissionDef.ObjectiveLabel(Game.I.Mission.Current));
+            Game.I.Toast(Loc.F("toast.exit_locked", LevelDef.ObjectiveLabel(Game.I.Mission.Current)));
             Sfx.Play("empty");
         }
 

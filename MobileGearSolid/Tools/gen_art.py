@@ -647,6 +647,8 @@ def character(prefix, pal, armed_player):
                     c.rect(13, hy + 2, 8, 1, pal["band"])
                     c.rect(10, hy + 2, 3, 1, pal["band"])
                     c.rect(9, hy + 3, 2, 3, pal["band"])
+            if pal.get("boss"):
+                boss_details(c, d, hy, oy, pal, f)
             c.outline()
             c.save(f"{prefix}_{d}_{f}")
     # dead / downed sprite
@@ -663,9 +665,163 @@ def character(prefix, pal, armed_player):
     c.save(f"{prefix}_dead")
 
 
+def boss_details(c, d, hy, oy, pal, f):
+    """Legendary-soldier look: black bandana with long tails, eyepatch, beard, harness straps."""
+    band, beard, patch, harness = pal["band"], pal["beard"], (14, 14, 16), pal["harness"]
+    flow = (0, 1, 0, -1)[f]  # bandana tails sway while walking
+    if d == "down":
+        # harness straps crossing the chest
+        for i in range(6):
+            c.set(12 + i, 15 + oy + i, harness)
+            c.set(20 - i, 15 + oy + i, harness)
+        c.rect(13, hy + 4, 7, 2, pal["skin"])          # clear the default eye band
+        c.rect(13, hy + 4, 3, 2, patch)                # eyepatch (his right eye)
+        c.hline(12, hy + 3, 9, patch)                  # strap
+        c.set(18, hy + 4, (230, 226, 210))
+        c.set(18, hy + 5, (30, 32, 36))                # good eye
+        c.rect(13, hy + 6, 7, 2, beard)                # beard + moustache
+        c.set(15, hy + 6, shade(beard, -25)); c.set(16, hy + 6, shade(beard, -25))
+        c.rect(14, hy + 8, 5, 1, beard)
+        c.rect(11, hy, 11, 2, band)                    # bandana
+        c.rect(21, hy + 1, 2, 2, band)                 # knot tails peeking out
+        c.rect(22, hy + 3 + flow, 1, 3, band)
+    elif d == "up":
+        for i in range(6):
+            c.set(12 + i, 15 + oy + i, harness)
+            c.set(20 - i, 15 + oy + i, harness)
+        c.rect(11, hy, 11, 3, band)
+        c.rect(15, hy + 3, 3, 2, band)                 # knot
+        c.rect(14 + flow, hy + 5, 2, 6, band)          # long tails down the back
+        c.rect(17 - flow, hy + 5, 2, 5, shade(band, 10))
+    else:
+        c.vline(14, 14 + oy, 7, harness)
+        c.rect(18, hy + 4, 3, 2, pal["skin"])
+        c.set(19, hy + 4, (230, 226, 210))
+        c.set(20, hy + 4, (30, 32, 36))
+        c.rect(17, hy + 6, 4, 2, beard)
+        c.rect(16, hy + 7, 2, 1, beard)
+        c.rect(13, hy, 8, 2, band)
+        c.rect(9, hy + 1, 4, 2, band)                  # tails fly behind
+        c.rect(6, hy + 2 + flow, 4, 1, band)
+        c.rect(7, hy + 3 - flow, 3, 1, shade(band, 10))
+
+
 PLAYER = dict(skin=(200, 152, 112), hair=(46, 34, 28), body=(58, 70, 50), body_d=(38, 46, 34),
               legs=(48, 56, 42), boots=(26, 26, 24), accent=(90, 80, 50), eyes=(20, 22, 26),
               helmet=False, band=(40, 44, 40))
+BOSS = dict(skin=(192, 144, 104), hair=(64, 52, 40), body=(82, 78, 54), body_d=(56, 54, 38),
+            legs=(70, 68, 48), boots=(30, 28, 24), accent=(104, 84, 54), eyes=(192, 144, 104),
+            helmet=False, band=(26, 26, 30), boss=True, beard=(86, 72, 58), harness=(126, 100, 62))
+
+
+# ---------------------------------------------------------------- portraits for dialogue (64x64)
+def ellipse(c, cx, cy, rx, ry, col, ymin=-99, ymax=999):
+    for y in range(int(cy - ry), int(cy + ry) + 1):
+        if y < ymin or y > ymax:
+            continue
+        for x in range(int(cx - rx), int(cx + rx) + 1):
+            if ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1.0:
+                c.set(x, y, col)
+
+
+def portrait_boss():
+    c = C(64, 64)
+    skin, hair, band, beard = (192, 144, 104), (64, 52, 40), (26, 26, 30), (86, 72, 58)
+    suit, strap = (82, 78, 54), (126, 100, 62)
+    ellipse(c, 32, 64, 27, 14, suit)                    # shoulders
+    ellipse(c, 32, 64, 9, 12, shade(suit, -18))         # collar shadow
+    for i in range(16):                                 # harness
+        c.rect(14 + i, 52 + i // 2, 2, 2, strap)
+        c.rect(48 - i, 52 + i // 2, 2, 2, strap)
+    c.rect(26, 40, 12, 12, shade(skin, -22))            # neck
+    ellipse(c, 32, 28, 14, 17, skin)                    # head
+    ellipse(c, 38, 30, 8, 13, shade(skin, -14))         # cheek shading
+    ellipse(c, 32, 15, 15, 8, hair, ymax=19)            # hair
+    c.rect(17, 18, 3, 12, hair); c.rect(44, 18, 3, 12, hair)
+    c.rect(16, 16, 32, 5, band)                         # bandana
+    c.hline(17, 16, 30, (60, 60, 66))
+    c.rect(46, 17, 5, 4, band)                          # knot + tails
+    for i in range(10):
+        c.rect(50 + i // 2, 19 + i, 3, 1, band)
+    for i in range(8):
+        c.rect(47 + i // 3, 21 + i, 2, 1, shade(band, 12))
+    c.rect(35, 24, 7, 1, hair)                          # brow
+    c.rect(22, 24, 7, 1, hair)
+    ellipse(c, 25, 28, 4.5, 3.5, (14, 14, 16))          # eyepatch
+    for i in range(14):                                 # strap
+        c.set(17 + i // 2, 24 + (i % 2), (14, 14, 16)) if i < 6 else c.set(29 + i, 23 - (i - 6) // 3, (14, 14, 16))
+    c.rect(36, 27, 5, 2, (226, 220, 204))               # good eye
+    c.rect(38, 27, 2, 2, (36, 40, 46))
+    c.vline(32, 27, 7, shade(skin, -34))                # nose
+    c.rect(31, 34, 3, 1, shade(skin, -40))
+    ellipse(c, 32, 40, 12, 7, beard, ymin=36)           # beard
+    c.rect(26, 35, 12, 3, beard)                        # moustache
+    c.rect(28, 39, 8, 1, (52, 40, 34))                  # mouth
+    for _ in range(40):
+        x, y = rng.randint(21, 43), rng.randint(36, 46)
+        if c.get(x, y)[:3] == beard:
+            c.set(x, y, shade(beard, rng.randint(-14, 10)))
+    c.vline(42, 30, 4, shade(skin, -40))                # scar
+    c.outline()
+    c.save("portrait_boss")
+
+
+def portrait_major():
+    c = C(64, 64)
+    skin, hair, suit = (206, 166, 132), (176, 176, 170), (98, 74, 54)
+    ellipse(c, 32, 64, 27, 14, suit)
+    c.rect(27, 50, 10, 14, (230, 230, 222))             # shirt
+    c.rect(30, 52, 4, 12, (150, 40, 36))                # tie
+    c.rect(26, 40, 12, 11, shade(skin, -22))
+    ellipse(c, 32, 27, 13, 16, skin)
+    ellipse(c, 37, 29, 7, 12, shade(skin, -12))
+    ellipse(c, 32, 14, 14, 7, hair, ymax=17)            # swept grey hair
+    c.rect(19, 15, 3, 9, hair); c.rect(42, 15, 3, 9, hair)
+    for x0 in (22, 34):                                 # glasses
+        c.rect(x0, 25, 8, 5, (40, 40, 44))
+        c.rect(x0 + 1, 26, 6, 3, (176, 200, 210))
+        c.set(x0 + 2, 26, (240, 250, 255))
+    c.hline(30, 26, 4, (40, 40, 44))
+    c.rect(24, 32, 16, 0, skin)
+    c.vline(32, 29, 5, shade(skin, -34))
+    c.rect(25, 35, 14, 3, hair)                         # moustache
+    c.rect(28, 39, 8, 1, (110, 70, 60))
+    c.hline(22, 21, 6, shade(skin, -30)); c.hline(36, 21, 6, shade(skin, -30))  # brows / wrinkles
+    c.rect(44, 22, 3, 10, (40, 40, 44))                 # headset
+    c.rect(41, 34, 6, 2, (40, 40, 44))
+    c.outline()
+    c.save("portrait_major")
+
+
+def hide_box():
+    """The cardboard box. Deliberately brighter and taped so it pops out of the scenery."""
+    for name, slit in (("prop_hidebox", False), ("player_box", True)):
+        c = C(T, T)
+        top, front = (196, 158, 98), (170, 132, 80)
+        c.rect(3, 6, 26, 8, top)
+        c.vline(16, 6, 8, shade(top, -30))
+        c.rect(3, 14, 26, 16, front)
+        c.noise(4, 15, 24, 14, front, 5)
+        c.rect(3, 14, 26, 1, shade(front, -35))
+        c.rect(3, 19, 26, 3, (60, 110, 160))            # blue tape band
+        c.rect(6, 23, 7, 5, (230, 226, 210))            # shipping label
+        c.hline(7, 25, 5, (60, 60, 60))
+        for i in range(4):                              # "this side up" arrows
+            c.set(21 + i, 26 - i, (40, 30, 20)); c.set(21 - i + 6, 26 - i, (40, 30, 20))
+        if slit:
+            c.rect(14, 16, 8, 2, (10, 10, 12))          # eye slit — someone is inside
+            c.set(19, 16, (230, 226, 210))
+        c.outline((255, 220, 120) if not slit else OUTL)
+        c.save(name)
+
+
+def trap_item(c):
+    c.rect(3, 6, 10, 8, (70, 76, 80))
+    c.rect(4, 7, 8, 3, (30, 34, 36))
+    c.rect(5, 8, 2, 1, (240, 60, 50))
+    c.rect(9, 8, 2, 1, (240, 200, 60))
+    c.rect(11, 1, 1, 6, (170, 170, 170))
+    c.rect(3, 12, 10, 1, (100, 106, 110))
 GUARD = dict(skin=(196, 150, 112), hair=(54, 58, 64), body=(86, 92, 102), body_d=(60, 66, 74),
              legs=(60, 64, 72), boots=(24, 24, 26), accent=(40, 40, 44), eyes=(40, 30, 26),
              helmet=True, band=None)
@@ -757,7 +913,11 @@ small("item_decoy", decoy)
 camera_sprite()
 lamp()
 marks()
-character("player", PLAYER, True)
+character("player", BOSS, True)   # Big Boss-style main hero
+portrait_boss()
+portrait_major()
+hide_box()
+small("item_trap", trap_item)
 character("guard", GUARD, False)
 ui_icons()
 

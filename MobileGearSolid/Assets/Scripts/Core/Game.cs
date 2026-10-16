@@ -8,10 +8,10 @@ using UnityEngine.Rendering.Universal;
 namespace NightShift
 {
     /// Entry point. Lives in the Game scene and drives menu -> briefing -> mission -> result.
-    /// The level, actors and UI are all built from code.
+    /// Missions come from Resources/Levels (campaign.txt lists the order), texts from Resources/Texts.
     public class Game : MonoBehaviour
     {
-        public enum Phase { Menu, Briefing, Playing, Paused, Result }
+        public enum Phase { Menu, Briefing, Playing, Dialog, Paused, Result }
 
         public static Game I;
         public Phase phase;
@@ -19,9 +19,11 @@ namespace NightShift
         public Level Level { get; private set; }
         public Player Player { get; private set; }
         public MissionState Mission { get; private set; }
-        public MissionDef Def { get; private set; }
+        public LevelDef Def { get; private set; }
         public int MissionIndex { get; private set; }
+        public List<string> Campaign { get; private set; }
         public GameUI UI { get; private set; }
+        public ScriptRunner Script { get; private set; }
 
         public readonly List<Guard> Guards = new List<Guard>();
         public readonly List<SecurityCamera> Cameras = new List<SecurityCamera>();
@@ -35,6 +37,9 @@ namespace NightShift
         Transform levelRoot;
         int reinforcements;
         float shake, panelDispatchTimer;
+        bool resettingCheckpoint;
+        System.Action dialogDone;
+        string debugLevel; // set by the Level Editor's "Play this level" button
 
         void Awake()
         {
@@ -70,8 +75,24 @@ namespace NightShift
                 es.AddComponent<InputSystemUIInputModule>().AssignDefaultActions();
             }
 
+            Loc.Reload();
+            Campaign = LevelDef.Campaign();
             UI = GameUI.Create(this);
-            ShowMenu();
+
+#if UNITY_EDITOR
+            debugLevel = UnityEditor.SessionState.GetString("ns_test_level", "");
+            UnityEditor.SessionState.EraseString("ns_test_level");
+#endif
+            if (!string.IsNullOrEmpty(debugLevel))
+            {
+                int i = Campaign.IndexOf(debugLevel);
+                if (i < 0) { Campaign.Add(debugLevel); i = Campaign.Count - 1; }
+                StartMission(i);
+            }
+            // first launch: drop straight into the tutorial (FTUE)
+            else if (Campaign.Count > 0 && !Progress.IsDone(Campaign[0]) && LevelDef.Load(Campaign[0])?.tutorial == true)
+                StartMission(0);
+            else ShowMenu();
         }
 
         // ------------------------------------------------------------------ flow
@@ -91,6 +112,7 @@ namespace NightShift
             levelRoot = null;
             Level = null;
             Player = null;
+            Script = null;
             Guards.Clear();
             Cameras.Clear();
             Interactables.Clear();
@@ -99,35 +121,52 @@ namespace NightShift
 
         public void StartMission(int index)
         {
+            var def = LevelDef.Load(Campaign[index]);
+            if (def == null) { ShowMenu(); return; }
+
             ClearLevel();
             MissionIndex = index;
-            Def = MissionDef.All[index];
+            Def = def;
             Mission = new MissionState(Def);
             reinforcements = 0;
             panelDispatchTimer = -1f;
+            resettingCheckpoint = false;
 
             levelRoot = new GameObject("Level").transform;
             Level = levelRoot.gameObject.AddComponent<Level>();
-            Level.Build(Resources.Load<TextAsset>("Levels/facility").text, Def);
+            Level.Build(Def);
 
-            foreach (var route in Def.routes)
+            foreach (var gd in Def.guards)
             {
                 var pts = new List<Vector2>();
-                foreach (char c in route)
+                foreach (char c in gd.waypoints)
+                {
                     if (Level.waypoints.TryGetValue(c, out var p)) pts.Add(p);
-                if (pts.Count > 0) Guards.Add(Guard.Spawn(Level, pts));
+                    else Debug.LogWarning($"[NightShift] {Def.id}: waypoint '{c}' not found on the map");
+                }
+                if (pts.Count > 0) Guards.Add(Guard.Spawn(Level, pts, gd));
             }
 
-            int hp = 4 + (Progress.Has(Upgrade.Armor) ? 1 : 0);
-            int ammo = 6 + (Progress.Has(Upgrade.Magazine) ? 3 : 0);
-            int decoys = 1 + (Progress.Has(Upgrade.Decoy) ? 1 : 0);
+            int hp = Def.hp + (!Def.tutorial && Progress.Has(Upgrade.Armor) ? 1 : 0);
+            int ammo = Def.ammo + (!Def.tutorial && Progress.Has(Upgrade.Magazine) ? 3 : 0);
+            int decoys = Def.decoys + (!Def.tutorial && Progress.Has(Upgrade.Decoy) ? 1 : 0);
             Player = Player.Spawn(Level, Level.playerStart, hp, ammo, decoys);
             SnapCamera();
 
-            phase = Phase.Briefing;
+            if (Def.script.Count > 0)
+            {
+                Script = levelRoot.gameObject.AddComponent<ScriptRunner>();
+                Script.Init(Def.script, Level.playerStart);
+            }
+
             Time.timeScale = 1f;
             UpdateLighting();
-            UI.ShowBriefing(Def);
+            if (Def.tutorial) BeginPlay(); // the tutorial briefs through dialogue instead
+            else
+            {
+                phase = Phase.Briefing;
+                UI.ShowBriefing(Def);
+            }
         }
 
         public void BeginPlay()
@@ -136,7 +175,7 @@ namespace NightShift
             Time.timeScale = 1f;
             GameInput.Clear();
             UI.ShowHUD();
-            Toast("Цель: " + MissionDef.ObjectiveLabel(Mission.Current));
+            if (!Def.tutorial) Toast(Loc.F("toast.objective", LevelDef.ObjectiveLabel(Mission.Current)));
         }
 
         public void Pause()
@@ -158,15 +197,19 @@ namespace NightShift
 
         public void Restart() => StartMission(MissionIndex);
 
+        public bool HasNextMission => MissionIndex + 1 < Campaign.Count;
+        public void NextMission() => StartMission(MissionIndex + 1);
+
         public void CompleteMission()
         {
             if (phase != Phase.Playing) return;
+            if (Player != null) Player.ExitBox();
             Mission.extracted = true;
             phase = Phase.Result;
-            int credits = Mission.Credits();
-            Progress.Complete(MissionIndex, Mission.Rank, credits);
+            int credits = Def.tutorial ? 0 : Mission.Credits();
+            Progress.Complete(Def.id, Mission.Rank, credits);
             Sfx.Play("success");
-            UI.ShowResult(Mission, MissionIndex, credits);
+            UI.ShowResult(Mission, credits);
         }
 
         public void PlayerDied()
@@ -180,6 +223,30 @@ namespace NightShift
         {
             yield return new WaitForSecondsRealtime(1.2f);
             UI.ShowFail(Mission);
+        }
+
+        // ------------------------------------------------------------------ dialogue
+
+        /// Visual-novel style line; the game is paused until the player taps through it.
+        public void ShowDialog(string speaker, string text, System.Action done)
+        {
+            phase = Phase.Dialog;
+            Time.timeScale = 0f;
+            dialogDone = done;
+            GameInput.Clear();
+            UI.ShowDialog(speaker, text);
+        }
+
+        public void CloseDialog()
+        {
+            if (phase != Phase.Dialog) return;
+            phase = Phase.Playing;
+            Time.timeScale = 1f;
+            GameInput.Clear();
+            UI.ShowHUD();
+            var done = dialogDone;
+            dialogDone = null;
+            done?.Invoke();
         }
 
         // ------------------------------------------------------------------ loop
@@ -206,6 +273,7 @@ namespace NightShift
                 UI.UpdateHUD();
             }
             else if (phase == Phase.Paused && GameInput.PausePressed()) Resume();
+            else if (phase == Phase.Dialog) UI.UpdateDialog();
 
             UpdateLighting();
         }
@@ -256,6 +324,12 @@ namespace NightShift
 
         public void RaiseAlert(string reason, Vector2 pos)
         {
+            if (Def.tutorial)
+            {
+                CaughtInTutorial(reason);
+                return;
+            }
+
             var m = Mission;
             m.lastKnownPos = pos;
             m.alertTimer = AlertDuration;
@@ -274,16 +348,35 @@ namespace NightShift
             {
                 reinforcements++;
                 var route = new List<Vector2> { Level.exitSpawn };
-                if (Level.waypoints.TryGetValue('A', out var a)) route.Add(a);
                 var g = Guard.Spawn(Level, route);
                 Guards.Add(g);
                 g.EnterAlert();
-                Toast("Тревога! Прибыло подкрепление");
+                Toast(Loc.T("toast.reinforcements"));
             }
+        }
+
+        /// In the tutorial being spotted is a lesson, not a fail: explain and rewind to the checkpoint.
+        void CaughtInTutorial(string reason)
+        {
+            if (resettingCheckpoint) return;
+            resettingCheckpoint = true;
+            Sfx.Play("alert");
+            Shake(0.2f);
+            ShowDialog("major", Loc.F("tut.caught", reason.ToLowerInvariant()), () =>
+            {
+                Player.Teleport(Script != null ? Script.Checkpoint : Level.playerStart);
+                foreach (var g in Guards) g.ResetToStart();
+                foreach (var it in Interactables.ToArray())
+                    if (it is HideBox box) box.ResetHome();
+                foreach (var c in Cameras) c.suspicion = 0f;
+                SnapCamera();
+                resettingCheckpoint = false;
+            });
         }
 
         public void ReportSighting(Vector2 pos)
         {
+            if (Def.tutorial) { CaughtInTutorial(Loc.T("reason.guard")); return; }
             Mission.lastKnownPos = pos;
             Mission.alertTimer = AlertDuration;
         }
@@ -291,7 +384,7 @@ namespace NightShift
         void EndAlert()
         {
             Mission.alertActive = false;
-            UI.ShowBanner("Тревога снята — охрана ищет тебя", UIKit.Amber, 2.5f);
+            UI.ShowBanner(Loc.T("banner.alert_over"), UIKit.Amber, 2.5f);
         }
 
         public void EmitNoise(Vector2 pos, float radius)
@@ -307,13 +400,13 @@ namespace NightShift
         {
             if (on)
             {
-                Toast("Питание восстановлено");
+                Toast(Loc.T("toast.power_on"));
                 panelDispatchTimer = -1f;
                 return;
             }
             Mission.powerWasCut = true;
             panelDispatchTimer = PanelDispatchDelay;
-            UI.ShowBanner("Питание отключено: камеры и свет не работают", UIKit.Amber, 3f);
+            UI.ShowBanner(Loc.T("banner.power_off"), UIKit.Amber, 3f);
         }
 
         void DispatchToPanel()
@@ -330,7 +423,7 @@ namespace NightShift
             if (best != null)
             {
                 best.SendToPanel();
-                Toast("Охрану отправили проверить щит");
+                Toast(Loc.T("toast.panel_dispatch"));
             }
         }
 

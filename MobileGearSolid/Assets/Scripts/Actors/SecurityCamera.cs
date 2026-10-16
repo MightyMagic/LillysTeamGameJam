@@ -44,7 +44,7 @@ namespace NightShift
 
             var p = Game.I.Player;
             bool sees = false;
-            if (p != null && !p.dead)
+            if (p != null && !p.dead && !p.HiddenFromCameras)
             {
                 Vector2 d = p.Center - eye;
                 sees = d.magnitude < Range && Vector2.Angle(new Vector2(Mathf.Cos(angle * Mathf.Deg2Rad), Mathf.Sin(angle * Mathf.Deg2Rad)), d) < FOV * 0.5f
@@ -62,7 +62,7 @@ namespace NightShift
                     suspicion += 1.3f * dt;
                     if (suspicion >= 1f)
                     {
-                        Game.I.RaiseAlert("Тебя засекла камера", p.Pos);
+                        Game.I.RaiseAlert(Loc.T("reason.camera"), p.Pos);
                         suspicion = 0f;
                     }
                 }

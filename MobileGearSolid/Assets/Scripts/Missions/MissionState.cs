@@ -5,17 +5,19 @@ namespace NightShift
     /// Runtime state of one mission attempt: objectives, alarms, loot, stats.
     public class MissionState
     {
-        public readonly MissionDef def;
+        public readonly LevelDef def;
         public float time;
         public int alerts, kills, intel, intelTotal;
         public bool hasKeycard, hasPrototype, dataDownloaded, powerWasCut, extracted;
+        public int trapsUsed, hides;
+        public string scriptObjective; // objective text set by a level script (tutorial)
 
         public bool alertActive;
         public float alertTimer;
         public Vector2 lastKnownPos;
         public string lastAlertReason;
 
-        public MissionState(MissionDef def) { this.def = def; }
+        public MissionState(LevelDef def) { this.def = def; }
 
         public bool IsDone(ObjectiveKind k)
         {
@@ -67,7 +69,7 @@ namespace NightShift
         public Rank Rank => alerts > 0 ? Rank.Compromised : kills > 0 ? Rank.SilentOperator : Rank.Ghost;
 
         public static string RankName(Rank r) =>
-            r == Rank.Ghost ? "GHOST" : r == Rank.SilentOperator ? "SILENT OPERATOR" : "COMPROMISED";
+            Loc.T(r == Rank.Ghost ? "rank.ghost" : r == Rank.SilentOperator ? "rank.silent" : "rank.compromised");
 
         public int Credits()
         {

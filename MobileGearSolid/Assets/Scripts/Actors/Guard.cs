@@ -14,6 +14,7 @@ namespace NightShift
         public const float ViewDist = 6.2f;
         const float WalkSpeed = 1.5f, SearchSpeed = 2.2f, ChaseSpeed = 3.0f;
         const float TurnSpeed = 300f;
+        const float LookAroundTime = 2.5f;
 
         public GuardState state;
         public bool bodyFound;
@@ -30,13 +31,15 @@ namespace NightShift
 
         List<Vector2> route;
         int routeIdx;
+        float? fixedLook;
+        float speedMul = 1f;
         List<Vector2> path = new List<Vector2>();
         int pathIdx;
         Vector2 velocity;
 
         float facingAngle = -90f, targetAngle = -90f, lookBase;
         float waitTimer, stateTimer, lostSightTimer, repathTimer, shootCooldown;
-        bool seesPlayer;
+        bool seesPlayer, searchArrived;
         Vector2 lastSeen, investigatePos;
         float iconPop;
 
@@ -45,7 +48,7 @@ namespace NightShift
         public Vector2 Center => Pos + Vector2.up * 0.45f;
         Vector2 Facing => new Vector2(Mathf.Cos(facingAngle * Mathf.Deg2Rad), Mathf.Sin(facingAngle * Mathf.Deg2Rad));
 
-        public static Guard Spawn(Level level, List<Vector2> route)
+        public static Guard Spawn(Level level, List<Vector2> route, GuardDef def = null)
         {
             var go = new GameObject("Guard");
             go.transform.SetParent(level.transform, false);
@@ -54,6 +57,11 @@ namespace NightShift
             var g = go.AddComponent<Guard>();
             g.level = level;
             g.route = route;
+            if (def != null)
+            {
+                g.fixedLook = def.look;
+                g.speedMul = Mathf.Max(0.2f, def.speed);
+            }
             g.rb = go.AddComponent<Rigidbody2D>();
             g.rb.bodyType = RigidbodyType2D.Kinematic;
             g.rb.interpolation = RigidbodyInterpolation2D.Interpolate;
@@ -74,11 +82,23 @@ namespace NightShift
             g.flashlight.pointLightInnerRadius = 0.5f;
 
             g.tracer = MakeTracer(go.transform, new Color(1f, 0.5f, 0.3f));
-
-            g.routeIdx = 0;
-            if (route.Count > 1) g.facingAngle = g.targetAngle = AngleOf(route[1] - route[0]);
-            g.GoTo(route[0]);
+            g.ResetToStart();
             return g;
+        }
+
+        /// Back to the first waypoint, calm. Used on spawn and by tutorial checkpoints.
+        public void ResetToStart()
+        {
+            if (Dead) return;
+            rb.position = route[0];
+            transform.position = route[0];
+            state = GuardState.Patrol;
+            suspicion = 0f;
+            waitTimer = 0f;
+            routeIdx = 0;
+            float a = fixedLook ?? (route.Count > 1 ? AngleOf(route[1] - route[0]) : -90f);
+            facingAngle = targetAngle = lookBase = a;
+            GoTo(route[0]);
         }
 
         public static LineRenderer MakeTracer(Transform parent, Color c)
@@ -157,8 +177,17 @@ namespace NightShift
         {
             var p = Game.I.Player;
             float range = CurrentRange;
-            seesPlayer = p != null && !p.dead && CanSee(p.Center, range);
+            seesPlayer = p != null && !p.dead && !p.HiddenFromGuards && CanSee(p.Center, range);
             var m = Game.I.Mission;
+
+            // an alerted guard bumping into the box kicks it over
+            if (p != null && p.InBox && state == GuardState.Alert && Vector2.Distance(Pos, p.Pos) < 1.1f)
+            {
+                p.ExitBox();
+                Game.I.ReportSighting(p.Pos);
+                Game.I.UI.ShowBanner(Loc.T("reason.box"), UIKit.Red, 2.5f);
+                seesPlayer = true;
+            }
 
             if (seesPlayer)
             {
@@ -173,10 +202,11 @@ namespace NightShift
                     float d = Vector2.Distance(Center, p.Center);
                     float rate = Mathf.Lerp(3.2f, 0.9f, d / range);
                     if (state == GuardState.Search || state == GuardState.Suspicious) rate *= 1.4f;
+                    if (p.BoxMoving) rate *= 0.5f; // "was that box... moving?"
                     suspicion += rate * dt;
                     if (suspicion >= 1f)
                     {
-                        Game.I.RaiseAlert("Тебя заметил охранник", p.Pos);
+                        Game.I.RaiseAlert(Loc.T(p.InBox ? "reason.box_moving" : "reason.guard"), p.Pos);
                         return;
                     }
                     if (suspicion > 0.12f && state != GuardState.Suspicious) EnterSuspicious();
@@ -193,7 +223,7 @@ namespace NightShift
                     if (CanSee(other.Pos + Vector2.up * 0.2f, range * 0.85f))
                     {
                         other.bodyFound = true;
-                        Game.I.RaiseAlert("Охранник обнаружил тело", other.Pos);
+                        Game.I.RaiseAlert(Loc.T("reason.body"), other.Pos);
                         return;
                     }
                 }
@@ -208,9 +238,7 @@ namespace NightShift
             pathIdx = 0;
         }
 
-        bool Arrived => pathIdx >= path.Count;
-
-        /// Moves along the current path; returns true when the end is reached.
+        /// Moves along the current path; returns true when the end is reached (or unreachable).
         bool FollowPath(float speed)
         {
             while (pathIdx < path.Count && Vector2.Distance(Pos, path[pathIdx]) < 0.12f) pathIdx++;
@@ -220,10 +248,13 @@ namespace NightShift
                 return true;
             }
             Vector2 d = path[pathIdx] - Pos;
-            velocity = d.normalized * speed;
+            velocity = d.normalized * speed * speedMul;
             targetAngle = AngleOf(d);
             return false;
         }
+
+        /// Calm left-right head sweep around lookBase (never a full spin).
+        void LookAround(float t, float amplitude) => targetAngle = lookBase + Mathf.Sin(t * 2.2f) * amplitude;
 
         // ------------------------------------------------------------------ states
 
@@ -233,12 +264,13 @@ namespace NightShift
             {
                 waitTimer -= dt;
                 velocity = Vector2.zero;
-                targetAngle = lookBase + Mathf.Sin(waitTimer * 2.4f) * 60f;
+                if (fixedLook.HasValue && route.Count == 1) targetAngle = fixedLook.Value;
+                else LookAround(waitTimer, 60f);
                 return;
             }
             if (FollowPath(WalkSpeed))
             {
-                lookBase = facingAngle;
+                lookBase = fixedLook ?? facingAngle;
                 waitTimer = route.Count > 1 ? 1.8f : 3.5f;
                 routeIdx = (routeIdx + 1) % route.Count;
                 GoTo(route[routeIdx]);
@@ -276,6 +308,7 @@ namespace NightShift
             investigatePos = pos;
             stateTimer = 0f;
             waitTimer = delay;
+            searchArrived = false;
             GoTo(pos);
         }
 
@@ -286,12 +319,16 @@ namespace NightShift
                 waitTimer -= dt;
                 velocity = Vector2.zero;
                 targetAngle = AngleOf(investigatePos - Pos);
-                lookBase = targetAngle;
                 return;
             }
-            if (!FollowPath(SearchSpeed)) { lookBase = facingAngle; return; }
+            if (!searchArrived)
+            {
+                if (!FollowPath(SearchSpeed)) return;
+                searchArrived = true;
+                lookBase = facingAngle;
+            }
             stateTimer += dt;
-            targetAngle = lookBase + Mathf.Sin(stateTimer * 2f) * 85f;
+            LookAround(stateTimer, 85f);
             if (stateTimer > 4.5f) ReturnToPatrol();
         }
 
@@ -306,7 +343,12 @@ namespace NightShift
         public void EnterAlert()
         {
             if (Dead) return;
-            if (state != GuardState.Alert) iconPop = 1f;
+            if (state != GuardState.Alert)
+            {
+                iconPop = 1f;
+                searchArrived = false;
+                stateTimer = 0f;
+            }
             state = GuardState.Alert;
             suspicion = 1f;
             shootCooldown = 1.3f; // give the player a moment to react
@@ -324,10 +366,11 @@ namespace NightShift
             var p = Game.I.Player;
             shootCooldown -= dt;
             repathTimer -= dt;
-
             if (!seesPlayer) shootCooldown = Mathf.Max(shootCooldown, 0.7f);
+
             if (seesPlayer)
             {
+                searchArrived = false;
                 float d = Vector2.Distance(Pos, p.Pos);
                 if (d > 3.5f)
                 {
@@ -341,15 +384,35 @@ namespace NightShift
                     Fire(p);
                     shootCooldown = 1.6f;
                 }
+                return;
             }
-            else
+
+            if (!searchArrived)
             {
+                // head for the last known position; re-plan when it changes
                 if (repathTimer <= 0f) { GoTo(m.lastKnownPos); repathTimer = 0.6f; }
                 if (FollowPath(ChaseSpeed))
                 {
-                    stateTimer += dt;
-                    targetAngle = facingAngle + 120f * dt * 3f;
+                    searchArrived = true;
+                    stateTimer = 0f;
+                    lookBase = facingAngle;
                 }
+                return;
+            }
+
+            // at the spot: look around, then sweep nearby points instead of spinning in place
+            stateTimer += dt;
+            if (stateTimer < LookAroundTime)
+            {
+                velocity = Vector2.zero;
+                LookAround(stateTimer, 80f);
+                return;
+            }
+            if (FollowPath(SearchSpeed))
+            {
+                GoTo(level.RandomWalkableNear(m.lastKnownPos, 4));
+                stateTimer = 0f;
+                lookBase = facingAngle;
             }
         }
 
@@ -383,7 +446,7 @@ namespace NightShift
             if (stateTimer > 2.5f)
             {
                 level.RestorePower();
-                Game.I.Toast("Охранник включил питание");
+                Game.I.Toast(Loc.T("toast.power_fixed"));
                 ReturnToPatrol();
             }
         }

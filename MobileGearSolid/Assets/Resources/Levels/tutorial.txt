@@ -1,0 +1,63 @@
+# Файл уровня Night Shift. Полное описание формата — в LEVELS.md в корне проекта.
+# Тексты (название, брифинг, угрозы) лежат в Assets/Resources/Texts/texts.txt
+# под ключами <id>.title / <id>.brief / <id>.threats, где id = имя этого файла.
+# Удобнее всего редактировать карту в Unity: меню Night Shift > Level Editor.
+
+[mission]
+tutorial = true
+objectives = extract
+hp = 3
+ammo = 1
+decoys = 2
+
+[map]
+                 ########C#######C########  #################X#
+##################..k.^.......^......^..c#  #.....^..5.....7..#
+#b...^.......^..c#......................k#  #^############.####
+#.P.......0....1.D........3...........2..####.############.####
+#u............yy.D.8.....................D...4############.####
+##################.x.....................D....############.####
+                 ############################.############.####
+                                            #...........^..####
+                                            ###################
+
+[guards]
+0 look=right
+2 3
+5 look=right
+
+[script]
+# Обучение. Команды описаны в LEVELS.md. Тексты реплик — в texts.txt.
+objective tut.obj.listen
+say major tut.intro.1
+say boss tut.intro.2
+say major tut.kill.1
+objective tut.obj.kill
+highlight shoot
+wait kill 1
+say major tut.kill.2
+objective tut.obj.move
+wait reach 1
+checkpoint 1
+say major tut.hide.1
+objective tut.obj.box
+wait reach 8 1.8
+highlight interact
+wait hide
+say major tut.hide.2
+say boss tut.hide.3
+objective tut.obj.sneak
+wait reach 4
+checkpoint 4
+say major tut.trap.1
+say boss tut.trap.2
+say major tut.trap.3
+objective tut.obj.trap
+highlight trap
+wait trap
+toast tut.trap.run
+objective tut.obj.exit
+wait reach 7
+say major tut.end.1
+say boss tut.end.2
+end

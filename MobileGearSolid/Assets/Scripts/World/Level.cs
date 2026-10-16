@@ -5,16 +5,8 @@ using UnityEngine.Tilemaps;
 
 namespace NightShift
 {
-    /// Builds the facility from Resources/Levels/facility.txt and owns grid queries,
-    /// pathfinding and the power state.
-    ///
-    /// Map legend:
-    ///   #  wall           C  security camera (in wall)    X  exit door (in wall)   V  vent (in wall)
-    ///   .  floor          D  open doorway                 L  keycard door          ^  ceiling lamp
-    ///   P  player start   K  keycard   T  intel   R  ammo   M  medkit   W  noise decoy
-    ///   E  power panel    S  data terminal   O  prototype pedestal
-    ///   c crate  k box  b red barrel  u blue barrel  h shelf  r server rack  t desk  w weapon rack  l locker
-    ///   g floor grate  y hazard floor   0-9 / A B F H I J N Q U Y Z  patrol waypoints
+    /// Builds a level from the [map] section of a level file and owns grid queries,
+    /// pathfinding and the power state. The legend below is shared with the Level Editor window.
     public class Level : MonoBehaviour
     {
         public const int ObstacleMask = 1 << 0; // Default layer: walls, props, closed doors
@@ -37,9 +29,45 @@ namespace NightShift
         readonly List<Light2D> emergency = new List<Light2D>();
         readonly Dictionary<string, Tile> tiles = new Dictionary<string, Tile>();
 
-        const string WallChars = "#CXV";
-        const string PropChars = "ckbuhrtwl";
-        const string WaypointChars = "0123456789ABFHIJNQUYZ";
+        /// Map legend: character, editor colour, description (shown in Night Shift > Level Editor).
+        public static readonly (char ch, Color color, string label)[] Legend =
+        {
+            (' ', new Color(0, 0, 0), "пусто (за пределами)"),
+            ('#', new Color(0.25f, 0.27f, 0.3f), "стена"),
+            ('.', new Color(0.55f, 0.58f, 0.52f), "пол"),
+            ('D', new Color(0.75f, 0.68f, 0.35f), "проём / дверь"),
+            ('L', new Color(0.9f, 0.3f, 0.3f), "дверь по пропуску"),
+            ('X', new Color(0.3f, 0.95f, 0.4f), "выход (в стене)"),
+            ('V', new Color(0.35f, 0.35f, 0.4f), "вентиляция (в стене, декор)"),
+            ('C', new Color(1f, 0.2f, 0.2f), "камера (в стене, смотрит в сторону пола)"),
+            ('^', new Color(0.95f, 0.95f, 0.7f), "лампа на потолке"),
+            ('P', new Color(0.3f, 0.6f, 1f), "старт игрока"),
+            ('x', new Color(1f, 0.8f, 0.4f), "коробка, чтобы прятаться"),
+            ('K', new Color(1f, 0.55f, 0.5f), "пропуск"),
+            ('T', new Color(0.9f, 0.8f, 0.5f), "разведданные"),
+            ('R', new Color(0.6f, 0.7f, 0.4f), "патроны"),
+            ('M', new Color(1f, 1f, 1f), "аптечка"),
+            ('W', new Color(0.7f, 0.5f, 0.9f), "шумовая ловушка (подбор)"),
+            ('E', new Color(1f, 0.9f, 0.2f), "электрощит"),
+            ('S', new Color(0.3f, 0.9f, 0.6f), "терминал с данными"),
+            ('O', new Color(0.3f, 0.8f, 0.8f), "прототип"),
+            ('c', new Color(0.55f, 0.4f, 0.25f), "ящик"),
+            ('k', new Color(0.65f, 0.5f, 0.32f), "картонная коробка (декор)"),
+            ('b', new Color(0.6f, 0.25f, 0.2f), "красная бочка"),
+            ('u', new Color(0.3f, 0.4f, 0.5f), "синяя бочка"),
+            ('h', new Color(0.45f, 0.5f, 0.55f), "стеллаж"),
+            ('r', new Color(0.15f, 0.2f, 0.25f), "серверная стойка"),
+            ('t', new Color(0.5f, 0.55f, 0.55f), "стол с компьютером"),
+            ('w', new Color(0.35f, 0.3f, 0.25f), "оружейная стойка"),
+            ('l', new Color(0.35f, 0.45f, 0.38f), "шкафчик"),
+            ('g', new Color(0.45f, 0.47f, 0.45f), "решётка в полу (декор)"),
+            ('y', new Color(0.8f, 0.7f, 0.2f), "жёлто-чёрная разметка (декор)"),
+        };
+
+        public const string WallChars = "#CXV";
+        public const string PropChars = "ckbuhrtwl";
+        /// Waypoints / markers used by [guards] routes and [script] commands (they are floor tiles).
+        public const string WaypointChars = "0123456789ABFGHIJNQUYZ";
 
         public static bool IsWallChar(char c) => WallChars.IndexOf(c) >= 0;
 
@@ -53,10 +81,10 @@ namespace NightShift
 
         // ------------------------------------------------------------------ building
 
-        public void Build(string text, MissionDef mission)
+        public void Build(LevelDef mission)
         {
-            var lines = text.Replace("\r", "").TrimEnd('\n').Split('\n');
-            H = lines.Length;
+            var lines = mission.map;
+            H = lines.Count;
             W = 0;
             foreach (var l in lines) W = Mathf.Max(W, l.Length);
             map = new char[W, H];
@@ -137,19 +165,25 @@ namespace NightShift
                             blocked[x, y] = true;
                             var t = new GameObject("DataTerminal").AddComponent<DataTerminal>();
                             t.transform.SetParent(transform, false);
-                            t.Init(x, y, mission.terminal);
+                            t.Init(x, y, mission.Has(ObjectiveKind.DownloadData));
                             break;
                         }
                         case 'O':
                             blocked[x, y] = true;
-                            if (mission.prototype) SpawnPickup(PickupKind.Prototype, x, y);
-                            else SpawnProp("prop_crate", x, y);
+                            SpawnPickup(PickupKind.Prototype, x, y);
                             break;
-                        case 'K': if (mission.keycard) SpawnPickup(PickupKind.Keycard, x, y); break;
+                        case 'K': SpawnPickup(PickupKind.Keycard, x, y); break;
                         case 'T': SpawnPickup(PickupKind.Intel, x, y); intelCount++; break;
                         case 'R': SpawnPickup(PickupKind.Ammo, x, y); break;
                         case 'M': SpawnPickup(PickupKind.Medkit, x, y); break;
                         case 'W': SpawnPickup(PickupKind.Decoy, x, y); break;
+                        case 'x':
+                        {
+                            var box = new GameObject("HideBox").AddComponent<HideBox>();
+                            box.transform.SetParent(transform, false);
+                            box.Init(center);
+                            break;
+                        }
                     }
                 }
             }
@@ -343,6 +377,18 @@ namespace NightShift
                         if (Mathf.Max(Mathf.Abs(dx), Mathf.Abs(dy)) == r && Walkable(c.x + dx, c.y + dy))
                             return new Vector2Int(c.x + dx, c.y + dy);
             return c;
+        }
+
+        /// A random walkable tile centre within `radius` tiles of pos (falls back to pos).
+        public Vector2 RandomWalkableNear(Vector2 pos, int radius)
+        {
+            var c = Cell(pos);
+            for (int i = 0; i < 20; i++)
+            {
+                int x = c.x + Random.Range(-radius, radius + 1), y = c.y + Random.Range(-radius, radius + 1);
+                if (Walkable(x, y)) return Center(x, y);
+            }
+            return pos;
         }
 
         static readonly int[] DX = { 1, -1, 0, 0, 1, 1, -1, -1 };

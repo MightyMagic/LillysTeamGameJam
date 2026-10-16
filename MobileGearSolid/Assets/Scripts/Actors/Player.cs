@@ -2,12 +2,13 @@ using UnityEngine;
 
 namespace NightShift
 {
-    /// The infiltrator: free 8-way movement, silenced pistol with auto-targeting,
-    /// context interaction and throwable noise decoys.
+    /// The hero: free 8-way movement, close-range silenced pistol with auto-targeting,
+    /// context interaction, the cardboard box and placeable noise traps.
     public class Player : MonoBehaviour
     {
-        public const float Speed = 3.6f;
-        const float TargetRange = 8f, TargetAngle = 65f;
+        public const float Speed = 3.6f, BoxSpeed = 1.8f;
+        public const float TargetRange = 4.5f; // the suppressed pistol only works up close
+        const float TargetAngle = 65f, SpotRange = 9f;
         public const float ShotNoiseRadius = 4.5f;
 
         public int hp, maxHp, ammo, decoys;
@@ -16,11 +17,21 @@ namespace NightShift
         public Interactable CurrentInteractable { get; private set; }
         public Guard Target { get; private set; }
 
+        public bool InBox => box != null;
+        /// A still box is invisible to guards; a moving one only looks suspicious.
+        public bool HiddenFromGuards => InBox && stillTime > 0.2f;
+        public bool HiddenFromCameras => InBox;
+        public bool BoxMoving => InBox && stillTime <= 0.2f;
+
+        /// Text for the action button (null = nothing to do).
+        public string ActionPrompt => InBox ? Loc.T("prompt.box_exit") : CurrentInteractable != null ? CurrentInteractable.Prompt : null;
+
         Rigidbody2D rb;
         SpriteRenderer sr, reticle;
         CharAnim anim;
         LineRenderer tracer;
-        float tracerT, hurtFlash, invuln;
+        HideBox box;
+        float tracerT, hurtFlash, invuln, stillTime, boxBob;
 
         public Vector2 Pos => rb.position;
         public Vector2 Center => Pos + Vector2.up * 0.45f;
@@ -71,35 +82,23 @@ namespace NightShift
 
             Vector2 move = GameInput.Move;
             if (move.magnitude < 0.15f) move = Vector2.zero;
-            rb.linearVelocity = move * Speed;
+            rb.linearVelocity = move * (InBox ? BoxSpeed : Speed);
             if (move != Vector2.zero) facing = move.normalized;
+            stillTime = move == Vector2.zero ? stillTime + dt : 0f;
 
-            anim.Apply(sr, facing, rb.linearVelocity.magnitude, dt);
+            if (InBox)
+            {
+                sr.sprite = Art.S("player_box");
+                sr.flipX = false;
+                boxBob = move == Vector2.zero ? 0f : boxBob + dt * 10f;
+                sr.transform.localScale = new Vector3(1f, 1f + Mathf.Abs(Mathf.Sin(boxBob)) * 0.06f, 1f);
+            }
+            else anim.Apply(sr, facing, rb.linearVelocity.magnitude, dt);
             sr.sortingOrder = Art.SortY(Pos.y);
 
-            // context interaction
-            CurrentInteractable = null;
-            float best = float.MaxValue;
-            var list = Game.I.Interactables;
-            for (int i = list.Count - 1; i >= 0; i--)
-            {
-                if (i >= list.Count) continue; // a pickup may have removed itself
-                var it = list[i];
-                if (!it.Available) continue;
-                float d = Vector2.Distance(Pos + Vector2.up * 0.3f, it.Pos);
-                if (it.autoPickup)
-                {
-                    if (d < 0.7f) it.Interact(this);
-                    continue;
-                }
-                if (d <= it.range && d < best)
-                {
-                    best = d;
-                    CurrentInteractable = it;
-                }
-            }
+            FindInteractable();
 
-            Target = FindTarget();
+            Target = InBox ? null : FindTarget(TargetRange);
             reticle.enabled = Target != null;
             if (Target != null)
             {
@@ -108,8 +107,12 @@ namespace NightShift
             }
 
             if (GameInput.ConsumeShoot()) Shoot();
-            if (GameInput.ConsumeInteract() && CurrentInteractable != null) CurrentInteractable.Interact(this);
-            if (GameInput.ConsumeDecoy()) ThrowDecoy();
+            if (GameInput.ConsumeInteract())
+            {
+                if (InBox) ExitBox();
+                else if (CurrentInteractable != null) CurrentInteractable.Interact(this);
+            }
+            if (GameInput.ConsumeDecoy()) PlaceTrap();
 
             if (tracer.enabled)
             {
@@ -121,11 +124,35 @@ namespace NightShift
             sr.color = Color.Lerp(Color.white, new Color(1f, 0.3f, 0.3f), hurtFlash);
         }
 
+        void FindInteractable()
+        {
+            CurrentInteractable = null;
+            float best = float.MaxValue;
+            var list = Game.I.Interactables;
+            for (int i = list.Count - 1; i >= 0; i--)
+            {
+                if (i >= list.Count) continue; // a pickup may have removed itself
+                var it = list[i];
+                if (!it.Available) continue;
+                float d = Vector2.Distance(Pos + Vector2.up * 0.3f, it.Pos);
+                if (it.autoPickup)
+                {
+                    if (d < 0.7f && !InBox) it.Interact(this);
+                    continue;
+                }
+                if (d <= it.range && d < best)
+                {
+                    best = d;
+                    CurrentInteractable = it;
+                }
+            }
+        }
+
         /// Nearest living guard in a forward cone with clear line of fire (GDD §5).
-        Guard FindTarget()
+        Guard FindTarget(float range)
         {
             Guard best = null;
-            float bestD = TargetRange;
+            float bestD = range;
             foreach (var g in Game.I.Guards)
             {
                 if (g.Dead) continue;
@@ -142,26 +169,25 @@ namespace NightShift
 
         void Shoot()
         {
+            if (InBox) { Game.I.Toast(Loc.T("toast.in_box")); return; }
             if (ammo <= 0)
             {
-                Game.I.Toast("Нет патронов");
+                Game.I.Toast(Loc.T("toast.no_ammo"));
+                Sfx.Play("empty");
+                return;
+            }
+            var t = Target;
+            if (t == null)
+            {
+                // don't waste a bullet: explain why there is no shot
+                Game.I.Toast(Loc.T(FindTarget(SpotRange) != null ? "toast.too_far" : "toast.no_target"));
                 Sfx.Play("empty");
                 return;
             }
             ammo--;
-            Vector2 end;
-            var t = Target;
-            if (t != null)
-            {
-                end = t.Center;
-                facing = (end - Center).normalized;
-                t.Kill();
-            }
-            else
-            {
-                var hit = Physics2D.Raycast(Center, facing, 10f, Level.ObstacleMask);
-                end = hit.collider != null ? hit.point : Center + facing * 10f;
-            }
+            Vector2 end = t.Center;
+            facing = (end - Center).normalized;
+            t.Kill();
             tracer.SetPosition(0, Center + facing * 0.4f);
             tracer.SetPosition(1, end);
             tracer.enabled = true;
@@ -171,24 +197,53 @@ namespace NightShift
             Game.I.EmitNoise(Pos, ShotNoiseRadius);
         }
 
-        void ThrowDecoy()
+        /// Drops a noise trap at your feet; it goes off a moment later, so place it and run.
+        void PlaceTrap()
         {
+            if (InBox) { Game.I.Toast(Loc.T("toast.in_box")); return; }
             if (decoys <= 0)
             {
-                Game.I.Toast("Приманок нет");
+                Game.I.Toast(Loc.T("toast.no_traps"));
                 Sfx.Play("empty");
                 return;
             }
             decoys--;
-            const float dist = 3.5f;
-            var hit = Physics2D.Raycast(Center, facing, dist, Level.ObstacleMask);
-            Vector2 target = hit.collider != null ? hit.point - facing * 0.35f : Center + facing * dist;
-            Decoy.Spawn(transform.parent, Center, target);
+            Game.I.Mission.trapsUsed++;
+            NoiseTrap.Spawn(transform.parent, Pos + Vector2.up * 0.2f);
+            Game.I.Toast(Loc.T("toast.trap_placed"));
+        }
+
+        public void EnterBox(HideBox b)
+        {
+            box = b;
+            b.SetWorn(true, Pos);
+            stillTime = 0f;
+            Game.I.Mission.hides++;
+            Sfx.Play("door", 0.6f);
+        }
+
+        public void ExitBox()
+        {
+            if (box == null) return;
+            box.SetWorn(false, Pos + Vector2.up * 0.45f);
+            box = null;
+            sr.transform.localScale = Vector3.one;
+            anim.Apply(sr, facing, 0f, 0f);
+            Sfx.Play("door", 0.6f);
+        }
+
+        public void Teleport(Vector2 pos)
+        {
+            ExitBox();
+            rb.position = pos;
+            transform.position = pos;
+            rb.linearVelocity = Vector2.zero;
         }
 
         public void Hurt(int dmg)
         {
             if (dead || invuln > 0f) return;
+            ExitBox();
             hp -= dmg;
             hurtFlash = 1f;
             invuln = 0.7f;
