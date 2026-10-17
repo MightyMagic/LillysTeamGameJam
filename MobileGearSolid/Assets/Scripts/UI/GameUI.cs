@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -10,7 +11,7 @@ namespace MobileGearSolid
     public class GameUI : MonoBehaviour
     {
         Game game;
-        RectTransform root, menu, briefing, hud, dialog, pause, result;
+        RectTransform root, menu, ship, briefing, hud, dialog, cards, pause, result;
 
         // HUD widgets
         Text objectiveText, timerText, alertText, bannerText, toastText, progressLabel;
@@ -46,11 +47,13 @@ namespace MobileGearSolid
             ui.game = game;
             ui.root = (RectTransform)go.transform;
             ui.menu = UIKit.Rect(ui.root, "Menu").Fill();
+            ui.ship = UIKit.Rect(ui.root, "Ship").Fill();
             ui.briefing = UIKit.Rect(ui.root, "Briefing").Fill();
             ui.hud = UIKit.Rect(ui.root, "HUD").Fill();
             ui.BuildHUD();
             ui.dialog = UIKit.Rect(ui.root, "Dialog").Fill();
             ui.BuildDialog();
+            ui.cards = UIKit.Rect(ui.root, "Cards").Fill();
             ui.pause = UIKit.Rect(ui.root, "Pause").Fill();
             ui.result = UIKit.Rect(ui.root, "Result").Fill();
             return ui;
@@ -59,7 +62,9 @@ namespace MobileGearSolid
         void Show(RectTransform screen)
         {
             menu.gameObject.SetActive(screen == menu);
+            ship.gameObject.SetActive(screen == ship);
             briefing.gameObject.SetActive(screen == briefing);
+            cards.gameObject.SetActive(screen == cards);
             hud.gameObject.SetActive(screen == hud || screen == pause || screen == result || screen == dialog);
             dialog.gameObject.SetActive(screen == dialog);
             pause.gameObject.SetActive(screen == pause);
@@ -119,19 +124,19 @@ namespace MobileGearSolid
                 UIKit.Btn(left, $"{i:00}  {Loc.T(id + ".title")}\n<size=24>{sub}</size>", () => game.StartMission(idx), 34, unlocked).Size(112);
             }
 
-            // upgrades
-            var right = UIKit.Column(menu, "Upgrades", 14f);
-            right.At(new Vector2(0.5f, 1f), new Vector2(0f, 1f), new Vector2(40, -250), new Vector2(820, 600));
-            UIKit.Label(right, Loc.F("menu.gear", Progress.Credits), 40, UIKit.Amber).Size(54);
-            foreach (Upgrade u in System.Enum.GetValues(typeof(Upgrade)))
-            {
-                var up = u;
-                bool has = Progress.Has(u);
-                bool afford = Progress.Credits >= Progress.Cost(u);
-                string label = Progress.Name(u) + "\n<size=24>" + (has ? Loc.T("menu.bought") : Loc.F("menu.price", Progress.Cost(u))) + "</size>";
-                UIKit.Btn(right, label, () => { if (Progress.Buy(up)) { Sfx.Play("pickup"); ShowMenu(); } }, 30, !has && afford).Size(110);
-            }
-            UIKit.Label(right, Loc.T("menu.gear_hint"), 24, UIKit.Dim).Size(60);
+            // right column: the two big entry points of the meta layer
+            var right = UIKit.Column(menu, "Modes", 22f);
+            right.At(new Vector2(0.5f, 1f), new Vector2(0f, 1f), new Vector2(40, -250), new Vector2(820, 640));
+            UIKit.Label(right, Loc.T("menu.modes"), 40, UIKit.Amber).Size(54);
+            var raid = UIKit.Btn(right, Loc.T("menu.raid") + "\n<size=26>" +
+                (Progress.BestRaid > 0 ? Loc.F("menu.raid_best", Progress.BestRaid, RunState.RoomCount) : Loc.T("menu.raid_sub")) + "</size>",
+                game.StartRaid, 46);
+            raid.Size(190);
+            raid.GetComponent<Image>().color = new Color(0.32f, 0.1f, 0.08f, 0.95f);
+            var ship = UIKit.Btn(right, Loc.T("menu.ship") + "\n<size=26>" + Loc.F("menu.ship_sub", Progress.Credits) + "</size>", game.ShowShip, 46);
+            ship.Size(190);
+            ship.GetComponent<Image>().color = new Color(0.08f, 0.16f, 0.3f, 0.95f);
+            UIKit.Label(right, Loc.T("menu.modes_hint"), 26, UIKit.Dim).Size(110);
 
             UIKit.Label(menu, Loc.T("hint.controls") + "\n" + Loc.T("hint.controls_touch"), 24, UIKit.Dim, TextAnchor.MiddleCenter)
                 .rectTransform.At(new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0, 24), new Vector2(1800, 80));
@@ -173,6 +178,8 @@ namespace MobileGearSolid
         RectTransform pointerArrow, pointerMarker;
         Text pointerDistance;
         Image damageOverlay;
+        RectTransform hudCards;
+        int hudCardCount = -1;
         float damageFlash, heartbeatTimer;
 
         const int MaxHearts = 6;
@@ -223,6 +230,15 @@ namespace MobileGearSolid
             ammoText = Counter(counters, "ui_ammo", ref x);
             keycardIcon = UIKit.Img(counters, "Keycard", Color.white, Art.S("item_keycard")).gameObject;
             keycardIcon.GetComponent<Image>().rectTransform.At(new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(-x, 0), new Vector2(64, 64));
+
+            // active run cards under the status panel
+            hudCards = UIKit.Rect(hud, "ActiveCards");
+            hudCards.At(new Vector2(1, 1), new Vector2(1, 1), new Vector2(-126, -204), new Vector2(540, 52));
+            var hl = hudCards.gameObject.AddComponent<HorizontalLayoutGroup>();
+            hl.childAlignment = TextAnchor.MiddleRight;
+            hl.spacing = 6;
+            hl.childControlWidth = hl.childControlHeight = false;
+            hl.childForceExpandWidth = hl.childForceExpandHeight = false;
 
             var pauseBtn = UIKit.Btn(hud, "II", game.Pause, 40);
             pauseBtn.GetComponent<RectTransform>().At(new Vector2(1, 1), new Vector2(1, 1), new Vector2(-20, -20), new Vector2(90, 90));
@@ -319,7 +335,9 @@ namespace MobileGearSolid
             float dt = Time.unscaledDeltaTime;
 
             // objective: only the current goal, big; side contracts small underneath
-            missionText.text = $"{game.MissionIndex:00} · {m.def.Title}";
+            missionText.text = game.Run != null
+                ? Loc.F("hud.raid_title", game.Run.roomIndex + 1, RunState.RoomCount, game.Run.currentTier)
+                : $"{game.MissionIndex:00} · {m.def.Title}";
             if (m.def.tutorial || m.scriptObjective != null) objectiveText.text = m.scriptObjective ?? "";
             else
             {
@@ -348,6 +366,22 @@ namespace MobileGearSolid
             trapText.text = p.decoys.ToString();
             intelText.text = $"{m.intel}/{m.intelTotal}";
             keycardIcon.SetActive(m.hasKeycard);
+            if (game.ActiveCards.Count != hudCardCount)
+            {
+                hudCardCount = game.ActiveCards.Count;
+                UIKit.Clear(hudCards);
+                foreach (var id in game.ActiveCards)
+                {
+                    var def = Cards.Get(id);
+                    var bgImg = UIKit.Img(hudCards, "Card", new Color(def.tint.r, def.tint.g, def.tint.b, 0.35f));
+                    bgImg.rectTransform.sizeDelta = new Vector2(48, 48);
+                    bgImg.raycastTarget = false;
+                    var ic = UIKit.Img(bgImg.transform, "Icon", Color.white, Art.S(def.icon));
+                    ic.rectTransform.Fill(5f);
+                    ic.preserveAspect = true;
+                    ic.raycastTarget = false;
+                }
+            }
             boxHint.SetActive(p.InBox);
 
             timerText.text = UIKit.Time(m.time);
@@ -588,6 +622,213 @@ namespace MobileGearSolid
             dialogFull = null;
             Sfx.Play("click");
             game.CloseDialog();
+        }
+
+        // ------------------------------------------------------------------ ship (meta upgrades)
+
+        Image shipBoss;
+
+        public void ShowShip()
+        {
+            Show(ship);
+            UIKit.Clear(ship);
+            var bg = UIKit.Img(ship, "Deck", Color.white, Art.S("bg_deck"));
+            bg.rectTransform.Fill();
+            bg.preserveAspect = false;
+
+            // Big Boss standing on the helipad
+            shipBoss = UIKit.Img(ship, "BigBoss", Color.white, Art.S("player_down_0"));
+            shipBoss.rectTransform.At(new Vector2(0.4f, 0.24f), new Vector2(0.5f, 0f), Vector2.zero, new Vector2(300, 300));
+            shipBoss.preserveAspect = true;
+
+            var title = UIKit.Label(ship, Loc.T("ship.title"), 72, UIKit.Green, TextAnchor.UpperLeft);
+            title.fontStyle = FontStyle.Bold;
+            title.rectTransform.At(new Vector2(0, 1), new Vector2(0, 1), new Vector2(40, -24), new Vector2(900, 90));
+            UIKit.Label(ship, Loc.T("ship.subtitle"), 28, UIKit.TextCol, TextAnchor.UpperLeft)
+                .rectTransform.At(new Vector2(0, 1), new Vector2(0, 1), new Vector2(44, -112), new Vector2(760, 80));
+
+            // credits
+            var cr = UIKit.Img(ship, "Credits", new Color(0, 0, 0, 0.6f));
+            cr.rectTransform.At(new Vector2(0, 1), new Vector2(0, 1), new Vector2(40, -200), new Vector2(420, 70));
+            var crText = UIKit.Label(cr.transform, Loc.F("ship.credits", Progress.Credits), 40, UIKit.Amber, TextAnchor.MiddleCenter);
+            crText.fontStyle = FontStyle.Bold;
+            crText.rectTransform.Fill();
+
+            // upgrades panel on the right
+            var panel = UIKit.Img(ship, "Upgrades", new Color(0.02f, 0.05f, 0.08f, 0.88f));
+            panel.rectTransform.At(new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(-30, 10), new Vector2(900, 900));
+            var col = UIKit.Column(panel.transform, "Rows", 10f);
+            col.Fill(22f);
+            UIKit.Label(col, Loc.T("ship.upgrades"), 40, UIKit.Amber).Size(54);
+            foreach (Stat s in System.Enum.GetValues(typeof(Stat))) StatRow(col, s);
+
+            var back = UIKit.Btn(ship, Loc.T("button.back"), game.ShowMenu, 36);
+            back.GetComponent<RectTransform>().At(new Vector2(0, 0), new Vector2(0, 0), new Vector2(40, 40), new Vector2(300, 100));
+            var raid = UIKit.Btn(ship, Loc.T("menu.raid"), game.StartRaid, 36);
+            raid.GetComponent<RectTransform>().At(new Vector2(0, 0), new Vector2(0, 0), new Vector2(360, 40), new Vector2(420, 100));
+            raid.GetComponent<Image>().color = new Color(0.32f, 0.1f, 0.08f, 0.95f);
+        }
+
+        void StatRow(RectTransform parent, Stat s)
+        {
+            int lvl = Meta.Level(s), max = Meta.MaxLevel(s);
+            var row = UIKit.Img(parent, "Row", new Color(1, 1, 1, 0.05f));
+            row.Size(124);
+
+            var icon = UIKit.Img(row.transform, "Icon", Color.white, Art.S(Meta.Icon(s)));
+            icon.rectTransform.At(new Vector2(0, 0.5f), new Vector2(0, 0.5f), new Vector2(14, 0), new Vector2(84, 84));
+            icon.preserveAspect = true;
+
+            var name = UIKit.Label(row.transform, $"{Meta.Name(s)}  <color=#ffd060>{Meta.ValueText(s, lvl)}</color>", 32, Color.white, TextAnchor.UpperLeft);
+            name.fontStyle = FontStyle.Bold;
+            name.rectTransform.At(new Vector2(0, 1), new Vector2(0, 1), new Vector2(116, -10), new Vector2(480, 44));
+            UIKit.Label(row.transform, Meta.Desc(s), 22, UIKit.Dim, TextAnchor.UpperLeft)
+                .rectTransform.At(new Vector2(0, 1), new Vector2(0, 1), new Vector2(116, -54), new Vector2(520, 66));
+
+            // level pips
+            for (int i = 0; i < max; i++)
+            {
+                var pip = UIKit.Img(row.transform, "Pip", i < lvl ? UIKit.Green : new Color(1, 1, 1, 0.15f));
+                pip.rectTransform.At(new Vector2(1, 1), new Vector2(1, 1), new Vector2(-262 - (max - 1 - i) * 34, -18), new Vector2(26, 12));
+            }
+
+            bool maxed = Meta.IsMax(s);
+            bool afford = Progress.Credits >= Meta.Cost(s);
+            string label = maxed ? Loc.T("ship.max") : Loc.F("ship.upgrade", Meta.Cost(s), Meta.ValueText(s, lvl + 1));
+            var buy = UIKit.Btn(row.transform, label, () =>
+            {
+                if (Meta.Buy(s)) { Sfx.Play("success", 0.7f); ShowShip(); }
+            }, 26, !maxed && afford);
+            buy.GetComponent<RectTransform>().At(new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(-12, 0), new Vector2(230, 96));
+        }
+
+        void Update()
+        {
+            // idle "breathing" of Big Boss on the deck
+            if (shipBoss != null && ship.gameObject.activeSelf)
+            {
+                float t = Time.unscaledTime;
+                shipBoss.rectTransform.localScale = new Vector3(1f, 1f + Mathf.Sin(t * 2f) * 0.015f, 1f);
+                shipBoss.sprite = Art.S(Mathf.Repeat(t, 6f) < 0.4f ? "player_side_0" : "player_down_0");
+            }
+        }
+
+        // ------------------------------------------------------------------ night raid screens
+
+        public void ShowRaidIntro(RunState run)
+        {
+            Show(briefing);
+            var c = Window(briefing, new Vector2(1400, 860), true);
+            UIKit.Label(c, Loc.T("raid.title"), 54, UIKit.Red).Size(74);
+            UIKit.Label(c, Loc.F("raid.brief", RunState.RoomCount), 30, UIKit.TextCol).Size(230);
+            UIKit.Label(c, Loc.F("raid.loadout", Meta.MaxHp, Meta.Damage, Meta.Ammo, Meta.Traps), 30, UIKit.Amber).Size(90);
+            UIKit.Label(c, Loc.T("raid.hint"), 26, UIKit.Dim).Size(150);
+            var row = UIKit.Row(c, "Buttons", 30f);
+            row.Size(100);
+            UIKit.Btn(row, Loc.T("button.back"), game.ShowMenu, 36);
+            UIKit.Btn(row, Loc.T("button.start"), game.BeginPlay, 40);
+        }
+
+        public void ShowCards(List<CardDef> options)
+        {
+            Show(cards);
+            UIKit.Clear(cards);
+            UIKit.Img(cards, "Dim", new Color(0, 0, 0, 0.75f)).rectTransform.Fill();
+            var title = UIKit.Label(cards, Loc.T("cards.title"), 60, UIKit.Amber, TextAnchor.MiddleCenter);
+            title.fontStyle = FontStyle.Bold;
+            title.rectTransform.At(new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -70), new Vector2(1600, 80));
+            UIKit.Label(cards, Loc.T("cards.subtitle"), 30, UIKit.TextCol, TextAnchor.MiddleCenter)
+                .rectTransform.At(new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -150), new Vector2(1600, 50));
+
+            float w = 440, gap = 50, total = options.Count * w + (options.Count - 1) * gap;
+            for (int i = 0; i < options.Count; i++)
+            {
+                var def = options[i];
+                var card = UIKit.Img(cards, "Card", new Color(0.05f, 0.08f, 0.07f, 0.98f));
+                card.rectTransform.At(new Vector2(0.5f, 0.5f), new Vector2(0, 0.5f), new Vector2(-total / 2 + i * (w + gap), -40), new Vector2(w, 600));
+                var frame = card.gameObject.AddComponent<Outline>();
+                frame.effectColor = def.tint;
+                frame.effectDistance = new Vector2(5, -5);
+                var band = UIKit.Img(card.transform, "Band", new Color(def.tint.r, def.tint.g, def.tint.b, 0.25f));
+                band.rectTransform.At(new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -20), new Vector2(w - 40, 230));
+                var icon = UIKit.Img(card.transform, "Icon", Color.white, Art.S(def.icon));
+                icon.rectTransform.At(new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -45), new Vector2(180, 180));
+                icon.preserveAspect = true;
+                icon.raycastTarget = false;
+                int owned = Cards.Count(game.ActiveCards, def.id);
+                var name = UIKit.Label(card.transform, def.Name + (owned > 0 ? $" <color=#8fe39a>+{owned}</color>" : ""), 38, Color.white, TextAnchor.MiddleCenter);
+                name.fontStyle = FontStyle.Bold;
+                name.rectTransform.At(new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -270), new Vector2(w - 30, 60));
+                UIKit.Label(card.transform, def.Desc, 30, UIKit.TextCol, TextAnchor.UpperCenter)
+                    .rectTransform.At(new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -340), new Vector2(w - 50, 170));
+                var take = UIKit.Label(card.transform, Loc.T("cards.take"), 30, UIKit.Green, TextAnchor.MiddleCenter);
+                take.rectTransform.At(new Vector2(0.5f, 0), new Vector2(0.5f, 0), new Vector2(0, 24), new Vector2(w - 40, 50));
+                var btn = card.gameObject.AddComponent<Button>();
+                var picked = def;
+                btn.onClick.AddListener(() => game.PickCard(picked));
+            }
+        }
+
+        public void ShowRoomCleared(RunState run, MissionState m)
+        {
+            Show(result);
+            progressRoot.gameObject.SetActive(false);
+            var c = Window(result, new Vector2(1100, 640), true);
+            UIKit.Label(c, Loc.F("raid.room_cleared", run.roomIndex + 1, RunState.RoomCount), 52, UIKit.Green, TextAnchor.MiddleCenter).Size(80);
+            UIKit.Label(c, Loc.F("raid.room_stats", m.alerts, m.kills, run.credits, run.hp, run.ammo, run.traps), 32, UIKit.TextCol, TextAnchor.MiddleCenter).Size(170);
+            CardStrip(c, run.cards, 64);
+            UIKit.Label(c, Loc.T(run.roomIndex + 2 >= RunState.RoomCount ? "raid.next_final" : "raid.next"), 28, UIKit.Amber, TextAnchor.MiddleCenter).Size(50);
+            var row = UIKit.Row(c, "Buttons", 24f);
+            row.Size(100);
+            UIKit.Btn(row, Loc.T("raid.retreat"), game.RetreatRaid, 30);
+            UIKit.Btn(row, Loc.T("raid.continue"), game.ContinueRaid, 38);
+        }
+
+        public void ShowRaidResult(RunState run, int cleared)
+        {
+            Show(result);
+            progressRoot.gameObject.SetActive(false);
+            Highlight(null);
+            var c = Window(result, new Vector2(1200, 820), true);
+            UIKit.Label(c, Loc.T(run.won ? "raid.won" : run.retreated ? "raid.retreated" : "raid.lost"), 58, run.won ? UIKit.Green : run.retreated ? UIKit.Amber : UIKit.Red, TextAnchor.MiddleCenter).Size(84);
+            UIKit.Label(c, Loc.F("raid.result_stats", cleared, RunState.RoomCount, Progress.BestRaid, run.kills, run.alerts, UIKit.Time(run.time)), 32, UIKit.TextCol, TextAnchor.MiddleCenter).Size(150);
+            var cr = UIKit.Label(c, Loc.F("raid.result_credits", run.credits, Progress.Credits), 40, UIKit.Amber, TextAnchor.MiddleCenter);
+            cr.fontStyle = FontStyle.Bold;
+            cr.Size(70);
+            CardStrip(c, run.cards, 72);
+            UIKit.Label(c, Loc.T("raid.result_hint"), 26, UIKit.Dim, TextAnchor.MiddleCenter).Size(70);
+            var row = UIKit.Row(c, "Buttons", 24f);
+            row.Size(100);
+            UIKit.Btn(row, Loc.T("button.menu"), game.ShowMenu, 32);
+            UIKit.Btn(row, Loc.T("menu.ship"), game.ShowShip, 32);
+            UIKit.Btn(row, Loc.T("raid.again"), game.StartRaid, 32);
+        }
+
+        /// Row of small card icons.
+        static void CardStrip(RectTransform parent, List<CardId> list, float size)
+        {
+            var row = UIKit.Rect(parent, "Cards");
+            row.Size(size + 10);
+            var h = row.gameObject.AddComponent<HorizontalLayoutGroup>();
+            h.childAlignment = TextAnchor.MiddleCenter;
+            h.spacing = 10;
+            h.childControlWidth = h.childControlHeight = false;
+            h.childForceExpandWidth = h.childForceExpandHeight = false;
+            if (list.Count == 0)
+            {
+                var none = UIKit.Label(row, Loc.T("raid.no_cards"), 26, UIKit.Dim, TextAnchor.MiddleCenter);
+                none.rectTransform.sizeDelta = new Vector2(600, size);
+                return;
+            }
+            foreach (var id in list)
+            {
+                var def = Cards.Get(id);
+                var bgImg = UIKit.Img(row, "Card", new Color(def.tint.r, def.tint.g, def.tint.b, 0.3f));
+                bgImg.rectTransform.sizeDelta = new Vector2(size, size);
+                var ic = UIKit.Img(bgImg.transform, "Icon", Color.white, Art.S(def.icon));
+                ic.rectTransform.Fill(6f);
+                ic.preserveAspect = true;
+            }
         }
 
         // ------------------------------------------------------------------ pause / results

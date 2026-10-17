@@ -13,15 +13,21 @@ namespace MobileGearSolid
 
         public int hp, maxHp, ammo, decoys;
         public bool dead;
+
+        // stats from ship upgrades + run cards (set by Game.ApplyStats)
+        public int damage = 1, secondChance;
+        public float speedMul = 1f, stealthMul = 1f, cameraMul = 1f, shotNoiseMul = 1f;
+        public bool boxMaster;
+        float shotCooldown;
         public Vector2 facing = Vector2.down;
         public Interactable CurrentInteractable { get; private set; }
         public Guard Target { get; private set; }
 
         public bool InBox => box != null;
         /// A still box is invisible to guards; a moving one only looks suspicious.
-        public bool HiddenFromGuards => InBox && stillTime > 0.2f;
+        public bool HiddenFromGuards => InBox && (stillTime > 0.2f || boxMaster);
         public bool HiddenFromCameras => InBox;
-        public bool BoxMoving => InBox && stillTime <= 0.2f;
+        public bool BoxMoving => InBox && !boxMaster && stillTime <= 0.2f;
 
         /// Text for the action button (null = nothing to do).
         public string ActionPrompt => InBox ? Loc.T("prompt.box_exit") : CurrentInteractable != null ? CurrentInteractable.Prompt : null;
@@ -84,7 +90,8 @@ namespace MobileGearSolid
 
             Vector2 move = GameInput.Move;
             if (move.magnitude < 0.15f) move = Vector2.zero;
-            rb.linearVelocity = move * (InBox ? BoxSpeed : Speed);
+            rb.linearVelocity = move * (InBox && !boxMaster ? BoxSpeed : Speed * speedMul);
+            shotCooldown -= dt;
             if (move != Vector2.zero) facing = move.normalized;
             stillTime = move == Vector2.zero ? stillTime + dt : 0f;
 
@@ -178,6 +185,7 @@ namespace MobileGearSolid
                 Sfx.Play("empty");
                 return;
             }
+            if (shotCooldown > 0f) return;
             var t = Target;
             if (t == null)
             {
@@ -187,16 +195,17 @@ namespace MobileGearSolid
                 return;
             }
             ammo--;
+            shotCooldown = 0.2f;
             Vector2 end = t.Center;
             facing = (end - Center).normalized;
-            t.Kill();
+            t.TakeHit(damage);
             tracer.SetPosition(0, Center + facing * 0.4f);
             tracer.SetPosition(1, end);
             tracer.enabled = true;
             tracerT = 0.06f;
             Sfx.Play("shot");
             // the suppressor shrinks the audible radius, but the shot is not silent
-            Game.I.EmitNoise(Pos, ShotNoiseRadius);
+            Game.I.EmitNoise(Pos, ShotNoiseRadius * shotNoiseMul);
         }
 
         /// Drops a noise trap at your feet; it goes off a moment later, so place it and run.
@@ -252,6 +261,16 @@ namespace MobileGearSolid
             Sfx.Play("hurt");
             Game.I.Shake(0.25f);
             Game.I.UI.OnPlayerHurt();
+            if (hp <= 0 && secondChance > 0)
+            {
+                // "Second chance" card: survive the lethal hit once
+                secondChance--;
+                hp = 1;
+                invuln = 2f;
+                Game.I.Toast(Loc.T("toast.second_chance"));
+                Sfx.Play("success", 0.6f);
+                return;
+            }
             if (hp <= 0)
             {
                 hp = 0;

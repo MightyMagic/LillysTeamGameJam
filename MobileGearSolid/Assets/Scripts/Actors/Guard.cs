@@ -19,6 +19,10 @@ namespace MobileGearSolid
         public GuardState state;
         public bool bodyFound;
         public float suspicion;
+        public int hp;
+        /// After a non-lethal hit the guard staggers; if not finished off in time he raises the alarm.
+        public const float WoundStun = 1.3f;
+        float stunTimer;
 
         Level level;
         Rigidbody2D rb;
@@ -57,10 +61,12 @@ namespace MobileGearSolid
             var g = go.AddComponent<Guard>();
             g.level = level;
             g.route = route;
+            g.hp = Meta.GuardHp;
             if (def != null)
             {
                 g.fixedLook = def.look;
                 g.speedMul = Mathf.Max(0.2f, def.speed);
+                if (def.hp > 0) g.hp = def.hp;
             }
             g.rb = go.AddComponent<Rigidbody2D>();
             g.rb.bodyType = RigidbodyType2D.Kinematic;
@@ -70,8 +76,9 @@ namespace MobileGearSolid
             col.offset = new Vector2(0, 0.22f);
 
             g.sr = go.AddComponent<SpriteRenderer>();
+            if (g.hp > Meta.GuardHp) g.sr.color = new Color(0.72f, 0.8f, 1f); // armoured: bluish tint
             g.anim = new CharAnim("guard");
-            g.icon = Art.MakeSprite(go.transform, "StateIcon", "fx_suspect", new Vector3(0, 1.45f), Art.OrderIcons);
+            g.icon = Art.MakeSprite(go.transform, "StateIcon", "fx_suspect", new Vector3(0, 1.6f), Art.OrderIcons);
             g.icon.enabled = false;
             g.cone = VisionCone.Create(level.transform, "GuardCone");
 
@@ -130,6 +137,16 @@ namespace MobileGearSolid
                 return;
             }
             float dt = Time.deltaTime;
+
+            if (stunTimer > 0f)
+            {
+                stunTimer -= dt;
+                velocity = Vector2.zero;
+                if (stunTimer <= 0f && Game.I.Player != null)
+                    Game.I.RaiseAlert(Loc.T("reason.wounded"), Game.I.Player.Pos);
+                UpdateVisuals(dt);
+                return;
+            }
 
             Perceive(dt);
 
@@ -203,6 +220,7 @@ namespace MobileGearSolid
                     float rate = Mathf.Lerp(3.2f, 0.9f, d / range);
                     if (state == GuardState.Search || state == GuardState.Suspicious) rate *= 1.4f;
                     if (p.BoxMoving) rate *= 0.5f; // "was that box... moving?"
+                    rate *= p.stealthMul;
                     suspicion += rate * dt;
                     if (suspicion >= 1f)
                     {
@@ -458,6 +476,18 @@ namespace MobileGearSolid
             StartSearch(pos, 0.7f);
         }
 
+        /// A pistol hit: dies at 0 hp, otherwise staggers and will call for help.
+        public void TakeHit(int damage)
+        {
+            if (Dead) return;
+            hp -= damage;
+            if (hp <= 0) { Kill(); return; }
+            stunTimer = WoundStun;
+            velocity = Vector2.zero;
+            iconPop = 1f;
+            Sfx.Play("kill", 0.5f);
+        }
+
         public void Kill()
         {
             if (Dead) return;
@@ -484,7 +514,12 @@ namespace MobileGearSolid
 
             Color c;
             string iconName = null;
-            switch (state)
+            if (stunTimer > 0f)
+            {
+                c = new Color(1f, 0.15f, 0.1f, 0.15f);
+                iconName = Mathf.Repeat(Time.time * 6f, 1f) > 0.4f ? "fx_alert" : null;
+            }
+            else switch (state)
             {
                 case GuardState.Suspicious: c = new Color(1f, 0.75f, 0.2f, 0.3f); iconName = "fx_suspect"; break;
                 case GuardState.Search: c = new Color(1f, 0.6f, 0.2f, 0.26f); iconName = "fx_search"; break;

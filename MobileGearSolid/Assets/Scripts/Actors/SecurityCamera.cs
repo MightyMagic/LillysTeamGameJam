@@ -59,7 +59,7 @@ namespace MobileGearSolid
                 else
                 {
                     if (suspicion <= 0f) Sfx.Play("beep", 0.5f);
-                    suspicion += 1.3f * dt;
+                    suspicion += 1.3f * p.cameraMul * dt;
                     if (suspicion >= 1f)
                     {
                         Game.I.RaiseAlert(Loc.T("reason.camera"), p.Pos);

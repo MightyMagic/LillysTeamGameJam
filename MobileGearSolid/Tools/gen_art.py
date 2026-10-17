@@ -525,12 +525,30 @@ def lamp():
     c.save("prop_lamp")
 
 
-def marks():
-    c = C(16, 16)
-    c.rect(6, 1, 4, 10, (255, 60, 50))
-    c.rect(6, 12, 4, 3, (255, 60, 50))
-    c.outline((40, 0, 0))
+def alert_mark():
+    """The classic spotted '!': tall tapered red stroke + dot, white inner rim, thick black outline."""
+    c = C(20, 30)
+    red, hi, dark = (232, 26, 30), (255, 130, 120), (150, 10, 16)
+    # tapered stem: wide at the top, narrow at the bottom
+    for y in range(3, 19):
+        w = round(8 - (y - 3) * 4 / 15)          # 8 -> 4 px
+        x0 = 10 - w // 2
+        c.rect(x0, y, w, 1, red)
+        c.set(x0, y, hi)                          # left highlight
+        c.set(x0 + w - 1, y, dark)                # right shade
+    c.rect(6, 3, 8, 1, hi)                        # top highlight
+    # dot
+    c.rect(7, 21, 6, 5, red)
+    c.rect(7, 21, 6, 1, hi)
+    c.rect(7, 21, 1, 5, hi)
+    c.rect(12, 22, 1, 4, dark)
+    c.outline((255, 255, 255))                    # white rim
+    c.outline((10, 4, 4))                         # black outline
     c.save("fx_alert")
+
+
+def marks():
+    alert_mark()
     c = C(16, 16)
     pts = [(5, 2, 6, 2), (10, 3, 2, 4), (8, 7, 3, 2), (7, 8, 2, 3), (7, 12, 2, 2), (4, 3, 2, 2)]
     for x, y, w, h in pts:
@@ -924,6 +942,217 @@ def hud_icons():
     c.save("ui_target")
 
 
+# ---------------------------------------------------------------- meta layer: chest, card icons, ship deck
+def chest():
+    for name, opened in (("prop_chest", False), ("prop_chest_open", True)):
+        c = C(T, 32)
+        body, dark, stripe = (62, 84, 56), (40, 56, 36), (196, 160, 52)
+        c.rect(3, 15, 26, 15, body)
+        c.noise(4, 16, 24, 13, body, 4)
+        c.rect(3, 15, 26, 2, shade(body, 18))
+        for x in range(3, 29, 6):
+            c.rect(x, 26, 3, 3, stripe)
+        c.rect(3, 29, 26, 1, dark)
+        c.rect(2, 15, 1, 15, dark); c.rect(29, 15, 1, 15, dark)
+        if opened:
+            c.rect(3, 4, 26, 6, shade(body, 10))          # lid flipped up
+            c.rect(3, 10, 26, 2, dark)
+            c.rect(6, 12, 20, 3, (255, 236, 150))         # glow from inside
+            c.rect(9, 11, 14, 1, (255, 250, 210))
+        else:
+            c.rect(3, 9, 26, 6, shade(body, 8))           # lid
+            c.rect(3, 9, 26, 1, shade(body, 30))
+            c.rect(13, 13, 6, 6, (40, 44, 48))            # lock
+            c.rect(14, 14, 4, 3, (90, 240, 255))
+        c.outline()
+        c.save(name)
+
+
+def icon(name, pixels, colors):
+    c = C(16, 16)
+    for y, row in enumerate(pixels):
+        for x, ch in enumerate(row):
+            if ch in colors:
+                c.set(x, y, colors[ch])
+    c.outline()
+    c.save(name)
+
+
+def card_icons():
+    icon("icon_boot", [
+        "................",
+        "......aaaa......",
+        "......abba......",
+        "......abba......",
+        "......abba......",
+        "......abba......",
+        "......abbaaaa...",
+        ".....abbbbbbaa..",
+        ".....abbbbbbbba.",
+        ".....aaaaaaaaaa.",
+        ".....cccccccccc.",
+    ], {"a": (70, 56, 40), "b": (120, 96, 66), "c": (40, 36, 30)})
+    icon("icon_bolt", [
+        ".........aa.....",
+        "........aba.....",
+        ".......abba.....",
+        "......abba......",
+        ".....abbaaaa....",
+        "....abbbbbba....",
+        "....aaaabba.....",
+        ".......abba.....",
+        "......abba......",
+        "......aba.......",
+        ".....aba........",
+        ".....aa.........",
+    ], {"a": (200, 150, 30), "b": (255, 226, 80)})
+    icon("icon_silencer", [
+        "................",
+        "................",
+        "................",
+        ".aaaaaaabbbbbbb.",
+        ".accccccbddddddb",
+        ".accccccbddddddb",
+        ".aaaaaaabbbbbbb.",
+        ".aa.............",
+        ".aa.............",
+        ".aa.............",
+    ], {"a": (60, 60, 66), "b": (90, 96, 104), "c": (40, 40, 44), "d": (130, 136, 146)})
+    icon("icon_shield", [
+        "..aaaaaaaaaaaa..",
+        "..abbbbbbbbbba..",
+        "..abbbcccbbbba..",
+        "..abbbcccbbbba..",
+        "..abcccccccbba..",
+        "..abbbcccbbbba..",
+        "..abbbcccbbbba..",
+        "...abbbbbbbba...",
+        "....abbbbbba....",
+        ".....abbbba.....",
+        "......aaaa......",
+    ], {"a": (40, 70, 110), "b": (80, 140, 210), "c": (230, 240, 255)})
+    icon("icon_jammer", [
+        "................",
+        "..aaaaaaaa......",
+        "..abbbbbbacc....",
+        "..abbbbbbacd....",
+        "..abbbbbbacc....",
+        "..aaaaaaaa......",
+        "....aa..........",
+        "..eee....eee....",
+        "...eee..eee.....",
+        "....eeeeee......",
+        ".....eeee.......",
+        "....eeeeee......",
+        "...eee..eee.....",
+        "..eee....eee....",
+    ], {"a": (90, 94, 100), "b": (200, 204, 200), "c": (40, 44, 48), "d": (230, 40, 40), "e": (240, 60, 50)})
+    icon("icon_ap", [
+        "......aa........",
+        ".....abba.......",
+        ".....abba.......",
+        ".....cccc.......",
+        ".....dddd.......",
+        ".....dddd.......",
+        ".....dddd.......",
+        ".....dddd.......",
+        ".....eeee.......",
+    ], {"a": (200, 40, 40), "b": (255, 110, 90), "c": (60, 60, 66), "d": (210, 168, 70), "e": (140, 104, 44)})
+    icon("icon_eye", [
+        "................",
+        "................",
+        "....aaaaaaa.....",
+        "..aabbbbbbbaa...",
+        ".abbbcccccbbba..",
+        "abbbccdddccbbba.",
+        ".abbbcccccbbba..",
+        "..aabbbbbbbaa...",
+        "....aaaaaaa.....",
+    ], {"a": (40, 60, 50), "b": (220, 230, 220), "c": (70, 170, 110), "d": (10, 20, 14)})
+
+
+def ship_deck():
+    """480x270 background for the ship (Mother Base style) screen."""
+    from PIL import ImageDraw
+    W, H = 480, 270
+    img = Image.new("RGBA", (W, H))
+    px = img.load()
+    r = random.Random(1974)
+    for y in range(H):
+        t = y / 120
+        col = mix((6, 9, 20), (22, 34, 54), min(1, t))
+        for x in range(W):
+            px[x, y] = col + (255,)
+    for _ in range(120):  # stars
+        x, y = r.randint(0, W - 1), r.randint(0, 100)
+        b = r.randint(120, 255)
+        px[x, y] = (b, b, min(255, b + 20), 255)
+    d = ImageDraw.Draw(img)
+    d.ellipse((370, 22, 398, 50), fill=(226, 230, 210))           # moon
+    d.ellipse((376, 30, 382, 36), fill=(200, 204, 186))
+    d.ellipse((386, 38, 390, 42), fill=(200, 204, 186))
+    # sea
+    for y in range(112, H):
+        t = (y - 112) / 158
+        col = mix((16, 30, 46), (6, 12, 20), t)
+        for x in range(W):
+            px[x, y] = col + (255,)
+    for _ in range(260):  # wave glints
+        x, y = r.randint(0, W - 20), r.randint(114, 200)
+        L = r.randint(3, 10)
+        col = (40, 66, 90) if r.random() < 0.8 else (120, 140, 150)
+        d.line((x, y, x + L, y), fill=col)
+    d.line((376, 112, 392, 112), fill=(150, 160, 150))           # moon path
+    d.line((372, 118, 396, 118), fill=(110, 124, 120))
+    # superstructure on the right
+    d.rectangle((356, 54, 472, 190), fill=(40, 44, 50))
+    d.rectangle((356, 54, 472, 58), fill=(70, 76, 82))
+    for wy in (70, 92, 114):
+        for wx in range(366, 466, 14):
+            lit = r.random() < 0.6
+            d.rectangle((wx, wy, wx + 7, wy + 8), fill=(230, 200, 110) if lit else (24, 28, 34))
+    d.line((420, 54, 420, 14), fill=(80, 86, 92), width=2)          # mast
+    d.line((408, 24, 432, 24), fill=(80, 86, 92))
+    d.ellipse((428, 30, 446, 40), outline=(110, 116, 122))          # radar dish
+    px[420, 13] = (255, 60, 50, 255)
+    # deck (perspective trapezoid)
+    deck = [(0, 150), (480, 150), (480, 270), (0, 270)]
+    d.polygon(deck, fill=(52, 56, 60))
+    for y in range(150, 270, 14):
+        d.line((0, y, 480, y), fill=(44, 48, 52))
+    for x in range(-200, 680, 40):
+        d.line((240 + (x - 240) * 0.6, 150, x, 270), fill=(46, 50, 54))
+    for _ in range(300):  # grime / rivets
+        x, y = r.randint(0, W - 1), r.randint(152, H - 1)
+        px[x, y] = (62, 66, 70, 255) if r.random() < 0.5 else (40, 42, 46, 255)
+    # helipad
+    d.ellipse((90, 178, 300, 262), outline=(196, 164, 60), width=4)
+    d.ellipse((104, 184, 286, 256), outline=(150, 126, 50), width=1)
+    d.rectangle((182, 202, 188, 238), fill=(196, 164, 60))
+    d.rectangle((202, 202, 208, 238), fill=(196, 164, 60))
+    d.rectangle((182, 217, 208, 223), fill=(196, 164, 60))
+    # railing
+    d.line((0, 140, 480, 140), fill=(110, 116, 120), width=2)
+    d.line((0, 146, 480, 146), fill=(80, 86, 90))
+    for x in range(0, 480, 16):
+        d.line((x, 140, x, 150), fill=(90, 96, 100))
+    # crates + flag
+    for bx, by in ((20, 196), (44, 196), (32, 176)):
+        d.rectangle((bx, by, bx + 22, by + 20), fill=(110, 84, 52), outline=(70, 52, 34))
+        d.line((bx, by, bx + 22, by + 20), fill=(80, 60, 38))
+    d.line((330, 150, 330, 96), fill=(120, 120, 120))
+    d.polygon([(331, 98), (356, 104), (331, 112)], fill=(150, 40, 36))
+    # floodlight pools
+    glow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    gd = ImageDraw.Draw(glow)
+    for cx, cy, rr in ((195, 220, 120), (420, 200, 60)):
+        for k in range(rr, 0, -6):
+            a = int(18 * (1 - k / rr))
+            gd.ellipse((cx - k * 1.6, cy - k * 0.6, cx + k * 1.6, cy + k * 0.6), fill=(255, 240, 200, a))
+    img.alpha_composite(glow)
+    img.save(os.path.join(OUT, "bg_deck.png"))
+
+
 # ---------------------------------------------------------------- run
 floor_tile("tile_floor_0", 1, 0)
 floor_tile("tile_floor_1", 2, 1)
@@ -972,6 +1201,9 @@ small("item_trap", trap_item)
 character("guard", GUARD, False)
 ui_icons()
 hud_icons()
+chest()
+card_icons()
+ship_deck()
 
 # contact sheet for quick review (not imported: written outside Assets)
 files = sorted(f for f in os.listdir(OUT) if f.endswith(".png"))

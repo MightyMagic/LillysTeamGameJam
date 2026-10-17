@@ -22,7 +22,7 @@ decoys = 2
                                             ###################
 
 [guards]
-0 look=right
+0 look=right hp=1
 2 3
 5 look=right
 

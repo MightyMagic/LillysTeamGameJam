@@ -14,7 +14,11 @@ namespace MobileGearSolid
         {
             source = host.AddComponent<AudioSource>();
             source.playOnAwake = false;
-            if (clips.Count > 0) return;
+            // Clips are created at runtime, so Unity destroys them when Play Mode stops. With domain
+            // reload disabled this static dictionary survives and would hold dead clips: rebuild every time.
+            foreach (var c in clips.Values)
+                if (c != null) { if (Application.isPlaying) Object.Destroy(c); else Object.DestroyImmediate(c); }
+            clips.Clear();
 
             var rnd = new System.Random(7);
             float Noise() => (float)rnd.NextDouble() * 2f - 1f;
@@ -77,9 +81,13 @@ namespace MobileGearSolid
             clips[id] = clip;
         }
 
+        /// Plays a custom file from Resources/Audio (see audio.txt) if there is one, otherwise the built-in sound.
         public static void Play(string id, float volume = 1f)
         {
-            if (source != null && clips.TryGetValue(id, out var c)) source.PlayOneShot(c, volume);
+            if (source == null) return;
+            var custom = AudioConfig.Get("sfx." + id, "Sfx/" + id, 1f, out float customVolume);
+            if (custom != null) source.PlayOneShot(custom, volume * customVolume);
+            else if (clips.TryGetValue(id, out var c)) source.PlayOneShot(c, volume);
         }
     }
 }

@@ -11,7 +11,7 @@ namespace MobileGearSolid
     /// Missions come from Resources/Levels (campaign.txt lists the order), texts from Resources/Texts.
     public class Game : MonoBehaviour
     {
-        public enum Phase { Menu, Briefing, Playing, Dialog, Paused, Result }
+        public enum Phase { Menu, Briefing, Playing, Dialog, CardPick, Paused, Result }
 
         public static Game I;
         public Phase phase;
@@ -24,6 +24,8 @@ namespace MobileGearSolid
         public List<string> Campaign { get; private set; }
         public GameUI UI { get; private set; }
         public ScriptRunner Script { get; private set; }
+        /// Current Night Raid, or null in story missions.
+        public RunState Run { get; private set; }
 
         public readonly List<Guard> Guards = new List<Guard>();
         public readonly List<SecurityCamera> Cameras = new List<SecurityCamera>();
@@ -67,7 +69,9 @@ namespace MobileGearSolid
                 global.lightType = Light2D.LightType.Global;
             }
 
+            AudioConfig.Reload();
             Sfx.Init(cam.gameObject);
+            Music.Init(cam.gameObject);
 
             if (FindAnyObjectByType<EventSystem>() == null)
             {
@@ -97,9 +101,11 @@ namespace MobileGearSolid
         public void ShowMenu()
         {
             ClearLevel();
+            Run = null;
             phase = Phase.Menu;
             Time.timeScale = 1f;
             cam.transform.position = new Vector3(0, 0, -10);
+            Music.Play("menu");
             UI.ShowMenu();
         }
 
@@ -116,13 +122,67 @@ namespace MobileGearSolid
             GameInput.Clear();
         }
 
+        /// Story mission from campaign.txt.
         public void StartMission(int index)
         {
             var def = LevelDef.Load(Campaign[index]);
             if (def == null) { ShowMenu(); return; }
-
-            ClearLevel();
+            Run = null;
             MissionIndex = index;
+            missionCards.Clear();
+            StartLevel(def);
+            if (Def.tutorial) BeginPlay(); // the tutorial briefs through dialogue instead
+            else
+            {
+                phase = Phase.Briefing;
+                UI.ShowBriefing(Def);
+            }
+        }
+
+        // ------------------------------------------------------------------ night raid (roguelite)
+
+        /// New Night Raid: a chain of random hand-made rooms, cards carry over.
+        public void StartRaid()
+        {
+            Run = new RunState();
+            if (!NextRaidRoom()) { ShowMenu(); return; }
+            phase = Phase.Briefing;
+            UI.ShowRaidIntro(Run);
+        }
+
+        bool NextRaidRoom()
+        {
+            string id = Run.NextRoom();
+            var def = id != null ? LevelDef.Load(id) : null;
+            if (def == null)
+            {
+                Debug.LogError("[MGS] Night Raid: no rooms in Resources/Levels/raid");
+                return false;
+            }
+            StartLevel(def);
+            return true;
+        }
+
+        public void ShowShip()
+        {
+            ClearLevel();
+            Run = null;
+            phase = Phase.Menu;
+            Time.timeScale = 1f;
+            cam.transform.position = new Vector3(0, 0, -10);
+            Music.Play("base");
+            UI.ShowShip();
+        }
+
+        /// Cards active right now: the run's cards in a raid, or cards found during a story mission.
+        public List<CardId> ActiveCards => Run != null ? Run.cards : missionCards;
+        readonly List<CardId> missionCards = new List<CardId>();
+
+        // ------------------------------------------------------------------ level setup
+
+        void StartLevel(LevelDef def)
+        {
+            ClearLevel();
             Def = def;
             Mission = new MissionState(Def);
             reinforcements = 0;
@@ -144,10 +204,8 @@ namespace MobileGearSolid
                 if (pts.Count > 0) Guards.Add(Guard.Spawn(Level, pts, gd));
             }
 
-            int hp = Def.hp + (!Def.tutorial && Progress.Has(Upgrade.Armor) ? 1 : 0);
-            int ammo = Def.ammo + (!Def.tutorial && Progress.Has(Upgrade.Magazine) ? 3 : 0);
-            int decoys = Def.decoys + (!Def.tutorial && Progress.Has(Upgrade.Decoy) ? 1 : 0);
-            Player = Player.Spawn(Level, Level.playerStart, hp, ammo, decoys);
+            Player = Player.Spawn(Level, Level.playerStart, 1, 0, 0);
+            ApplyStats(true);
             SnapCamera();
 
             if (Def.script.Count > 0)
@@ -158,13 +216,80 @@ namespace MobileGearSolid
 
             Time.timeScale = 1f;
             UpdateLighting();
-            if (Def.tutorial) BeginPlay(); // the tutorial briefs through dialogue instead
+            Music.Play("level");
+        }
+
+        /// Ship upgrades + active cards -> player stats. On level start also sets hp/ammo/traps
+        /// (fresh loadout, or what the raid carried over from the previous room).
+        void ApplyStats(bool levelStart)
+        {
+            var p = Player;
+            var cards = ActiveCards;
+            int Count(CardId id) => Cards.Count(cards, id);
+
+            p.maxHp = (Def.hp > 0 ? Def.hp : Meta.MaxHp) + Count(CardId.Vitality);
+            p.damage = Meta.Damage + Count(CardId.ApRounds);
+            p.speedMul = Meta.SpeedMul * (1f + 0.15f * Count(CardId.Sprint));
+            p.stealthMul = Meta.StealthMul * Mathf.Pow(0.7f, Count(CardId.SoftSoles));
+            p.cameraMul = Count(CardId.Jammer) > 0 ? 0.5f : 1f;
+            p.shotNoiseMul = Count(CardId.Suppressor) > 0 ? 0.5f : 1f;
+            p.boxMaster = Count(CardId.BoxMaster) > 0;
+
+            if (!levelStart) return;
+            if (Run != null && Run.hp > 0)
+            {
+                p.hp = Mathf.Min(Run.hp, p.maxHp);
+                p.ammo = Run.ammo;
+                p.decoys = Run.traps;
+                p.secondChance = Run.secondChance;
+            }
             else
             {
-                phase = Phase.Briefing;
-                UI.ShowBriefing(Def);
+                p.hp = p.maxHp;
+                p.ammo = Def.ammo >= 0 ? Def.ammo : Meta.Ammo;
+                p.decoys = Def.decoys >= 0 ? Def.decoys : Meta.Traps;
+                p.secondChance = 0;
             }
         }
+
+        // ------------------------------------------------------------------ cards
+
+        /// Opened a chest: pause and offer 3 cards.
+        public void OfferCards()
+        {
+            if (Player == null) return;
+            var options = Cards.Roll(ActiveCards);
+            if (options.Count == 0) return;
+            if (Run != null) Run.chests++;
+            phase = Phase.CardPick;
+            Time.timeScale = 0f;
+            GameInput.Clear();
+            UI.ShowCards(options);
+        }
+
+        public void PickCard(CardDef card)
+        {
+            if (phase != Phase.CardPick) return;
+            ActiveCards.Add(card.id);
+            var p = Player;
+            switch (card.id)
+            {
+                case CardId.ExtraMag: p.ammo += 3; break;
+                case CardId.DoubleTrap: p.decoys += 2; break;
+                case CardId.SecondChance: p.secondChance++; break;
+                case CardId.Vitality: p.hp = p.maxHp + 1; break; // maxHp is raised by ApplyStats below
+            }
+            ApplyStats(false);
+            p.hp = Mathf.Min(p.hp, p.maxHp);
+            Sfx.Play("success", 0.7f);
+            phase = Phase.Playing;
+            Time.timeScale = 1f;
+            GameInput.Clear();
+            UI.ShowHUD();
+            Toast(Loc.F("toast.card", card.Name));
+        }
+
+        // ------------------------------------------------------------------ flow
 
         public void BeginPlay()
         {
@@ -172,7 +297,8 @@ namespace MobileGearSolid
             Time.timeScale = 1f;
             GameInput.Clear();
             UI.ShowHUD();
-            if (!Def.tutorial) Toast(Loc.F("toast.objective", LevelDef.ObjectiveLabel(Mission.Current)));
+            if (Run != null) Toast(Loc.F("toast.raid_room", Run.roomIndex + 1, RunState.RoomCount));
+            else if (!Def.tutorial) Toast(Loc.F("toast.objective", LevelDef.ObjectiveLabel(Mission.Current)));
         }
 
         public void Pause()
@@ -192,9 +318,13 @@ namespace MobileGearSolid
             UI.ShowHUD();
         }
 
-        public void Restart() => StartMission(MissionIndex);
+        public void Restart()
+        {
+            if (Run != null) StartRaid();
+            else StartMission(MissionIndex);
+        }
 
-        public bool HasNextMission => MissionIndex + 1 < Campaign.Count;
+        public bool HasNextMission => Run == null && MissionIndex + 1 < Campaign.Count;
         public void NextMission() => StartMission(MissionIndex + 1);
 
         public void CompleteMission()
@@ -203,10 +333,56 @@ namespace MobileGearSolid
             if (Player != null) Player.ExitBox();
             Mission.extracted = true;
             phase = Phase.Result;
+            Sfx.Play("success");
+
+            if (Run != null)
+            {
+                // room cleared: bank the reward, carry the loadout into the next room
+                Run.kills += Mission.kills;
+                Run.alerts += Mission.alerts;
+                Run.intel += Mission.intel;
+                Run.time += Mission.time;
+                Run.credits += RunState.RoomReward(Run.currentTier, Mission.alerts == 0) + Mission.intel * 30;
+                Run.hp = Player.hp;
+                Run.ammo = Player.ammo;
+                Run.traps = Player.decoys;
+                Run.secondChance = Player.secondChance;
+                if (Run.IsLastRoom) FinishRaid(true);
+                else UI.ShowRoomCleared(Run, Mission);
+                return;
+            }
+
             int credits = Def.tutorial ? 0 : Mission.Credits();
             Progress.Complete(Def.id, Mission.Rank, credits);
-            Sfx.Play("success");
             UI.ShowResult(Mission, credits);
+        }
+
+        /// "Next room" button on the room-cleared screen.
+        public void ContinueRaid()
+        {
+            if (Run == null) return;
+            if (!NextRaidRoom()) { FinishRaid(true); return; }
+            BeginPlay();
+        }
+
+        /// "Take the reward and leave" on the room-cleared screen.
+        public void RetreatRaid()
+        {
+            if (Run == null) return;
+            Run.retreated = true;
+            FinishRaid(false, Run.roomIndex + 1);
+        }
+
+        void FinishRaid(bool won, int cleared = -1)
+        {
+            Run.finished = true;
+            Run.won = won;
+            if (cleared < 0) cleared = won ? RunState.RoomCount : Run.roomIndex;
+            if (cleared > Progress.BestRaid) Progress.BestRaid = cleared;
+            if (won) Run.credits += 150; // completion bonus
+            Progress.Credits += Run.credits;
+            phase = Phase.Result;
+            UI.ShowRaidResult(Run, cleared);
         }
 
         public void PlayerDied()
@@ -219,7 +395,14 @@ namespace MobileGearSolid
         IEnumerator ShowFailLater()
         {
             yield return new WaitForSecondsRealtime(1.2f);
-            UI.ShowFail(Mission);
+            if (Run != null)
+            {
+                Run.kills += Mission.kills;
+                Run.alerts += Mission.alerts;
+                Run.time += Mission.time;
+                FinishRaid(false);
+            }
+            else UI.ShowFail(Mission);
         }
 
         // ------------------------------------------------------------------ dialogue

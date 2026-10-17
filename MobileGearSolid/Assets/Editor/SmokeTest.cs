@@ -178,7 +178,46 @@ namespace MobileGearSolid.EditorTools
                 case 23: if (Elapsed > 1.5) { Shot("m2_power_off"); g.StartMission(3); g.BeginPlay(); Next(); } break;
                 case 24: if (Elapsed > 1.5) { Shot("m3_start"); g.RaiseAlert("test", p.Pos); Next(); } break;
                 case 25: if (Elapsed > 8) { Shot("m3_alert_search"); LogGuards(); Next(); } break;
-                case 26: Finish(); break;
+                // --- night raid: chest -> card -> next room -> death -> results; ship + menu screens
+                case 26: g.ShowMenu(); Next(); break;
+                case 27: if (Elapsed > 0.8) { Shot("menu"); g.ShowShip(); Next(); } break;
+                case 28: if (Elapsed > 0.8) { Shot("ship"); g.StartRaid(); Next(); } break;
+                case 29: if (Elapsed > 0.8) { Shot("raid_intro"); g.BeginPlay(); Next(); } break;
+                case 30:
+                    if (Elapsed > 1.0)
+                    {
+                        Shot("raid_room1");
+                        Chest chest = null;
+                        foreach (var it in g.Interactables) if (it is Chest c) chest = c;
+                        if (chest == null) { Fail("no chest in raid room " + g.Run.currentRoom); break; }
+                        p.Teleport(chest.Pos + Vector2.down * 1.1f);
+                        Next();
+                    }
+                    break;
+                case 31: if (Elapsed > 0.4) { GameInput.PressInteract(); Next(); } break;
+                case 32:
+                    if (g.phase == Game.Phase.CardPick) { if (Elapsed > 0.6) { Shot("raid_cards"); Next(); } }
+                    else if (Elapsed > 2) Fail("chest did not offer cards");
+                    break;
+                case 33:
+                    g.PickCard(Cards.Get(CardId.ApRounds));
+                    Next();
+                    break;
+                case 34: if (Elapsed > 0.8) { Shot("raid_card_taken"); Debug.Log($"[SmokeTest] damage after card {p.damage}"); g.CompleteMission(); Next(); } break;
+                case 35: if (Elapsed > 0.8) { Shot("raid_room_cleared"); g.ContinueRaid(); Next(); } break;
+                case 36:
+                    if (Elapsed > 1.0)
+                    {
+                        Shot("raid_room2");
+                        Debug.Log($"[SmokeTest] raid room2 {g.Run.currentRoom} tier {g.Run.currentTier} hp {p.hp} cards {g.Run.cards.Count}");
+                        p.secondChance = 0;
+                        p.hp = 1;
+                        p.Hurt(5);
+                        Next();
+                    }
+                    break;
+                case 37: if (Elapsed > 2.5) { Shot("raid_result"); Next(); } break;
+                case 38: Finish(); break;
             }
         }
 
@@ -231,7 +270,8 @@ namespace MobileGearSolid.EditorTools
         {
             var keys = new List<string> { "ns_credits" };
             foreach (var id in LevelDef.Campaign()) { keys.Add("ns_done_" + id); keys.Add("ns_rank_" + id); }
-            foreach (Upgrade u in System.Enum.GetValues(typeof(Upgrade))) keys.Add("ns_up_" + u);
+            foreach (Stat st in System.Enum.GetValues(typeof(Stat))) keys.Add("ns_stat_" + st);
+            keys.Add("ns_raid_best");
             return keys.ToArray();
         }
 

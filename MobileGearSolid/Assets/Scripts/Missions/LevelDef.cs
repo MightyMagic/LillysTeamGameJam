@@ -37,6 +37,7 @@ namespace MobileGearSolid
         public string waypoints;   // waypoint markers from the map, visited in order
         public float? look;        // fixed look direction (degrees) for stationary guards
         public float speed = 1f;   // walk speed multiplier
+        public int hp;             // pistol hits to take down (0 = default Meta.GuardHp)
     }
 
     /// One mission = one text file in Assets/Resources/Levels/&lt;id&gt;.txt (see LEVELS.md).
@@ -50,7 +51,10 @@ namespace MobileGearSolid
         public ObjectiveKind[] objectives = { ObjectiveKind.Extract };
         public SideTask[] sides = new SideTask[0];
         public bool tutorial;
-        public int hp = 4, ammo = 6, decoys = 1;
+        /// Start loadout overrides; -1 = use the character's upgraded stats from the ship.
+        public int hp = -1, ammo = -1, decoys = -1;
+        /// Difficulty tier 1..3 for Night Raid rooms (Levels/raid/*.txt).
+        public int tier = 1;
 
         public string Title => Loc.T(id + ".title");
         public string Brief => Loc.T(id + ".brief");
@@ -186,6 +190,7 @@ namespace MobileGearSolid
                 case "hp": def.hp = (int)ParseF(val); break;
                 case "ammo": def.ammo = (int)ParseF(val); break;
                 case "decoys": def.decoys = (int)ParseF(val); break;
+                case "tier": def.tier = (int)ParseF(val); break;
             }
         }
 
@@ -200,8 +205,56 @@ namespace MobileGearSolid
                 if (k == "look")
                     g.look = v == "up" ? 90f : v == "down" ? -90f : v == "left" ? 180f : v == "right" ? 0f : ParseF(v);
                 else if (k == "speed") g.speed = ParseF(v);
+                else if (k == "hp") g.hp = (int)ParseF(v);
             }
             return g;
+        }
+
+        /// Rough danger score of a level (used for Night Raid tiers and shown in the Level Editor):
+        /// guards weighted by hp and patrolling, cameras, route length to the exit, minus hiding boxes.
+        public float EstimateDifficulty(out int suggestedTier)
+        {
+            int H = map.Count, W = 0;
+            foreach (var r in map) W = Mathf.Max(W, r.Length);
+            char At(int x, int y) => y >= 0 && y < H && x >= 0 && x < map[y].Length ? map[y][x] : ' ';
+            bool Walk(int x, int y) { char c = At(x, y); return c != ' ' && "#CXV".IndexOf(c) < 0 && "ckbuhrtwlESO$".IndexOf(c) < 0; }
+
+            float score = 0f;
+            foreach (var g in guards)
+                score += (g.hp > 0 ? g.hp : Meta.GuardHp) / 2f + (g.waypoints.Length > 1 ? 0.3f : 0f);
+            int cams = 0, boxes = 0;
+            var start = new Vector2Int(-1, -1);
+            for (int y = 0; y < H; y++)
+                for (int x = 0; x < W; x++)
+                {
+                    char c = At(x, y);
+                    if (c == 'C') cams++;
+                    if (c == 'x') boxes++;
+                    if (c == 'P') start = new Vector2Int(x, y);
+                }
+            score += 0.8f * cams - 0.3f * boxes;
+
+            // shortest walk from P to the tile under any exit
+            if (start.x >= 0)
+            {
+                var dist = new Dictionary<Vector2Int, int> { [start] = 0 };
+                var q = new Queue<Vector2Int>();
+                q.Enqueue(start);
+                int best = 99;
+                while (q.Count > 0)
+                {
+                    var p = q.Dequeue();
+                    if (At(p.x, p.y - 1) == 'X') best = Mathf.Min(best, dist[p]);
+                    foreach (var d in new[] { Vector2Int.right, Vector2Int.left, Vector2Int.up, Vector2Int.down })
+                    {
+                        var n = p + d;
+                        if (!dist.ContainsKey(n) && Walk(n.x, n.y)) { dist[n] = dist[p] + 1; q.Enqueue(n); }
+                    }
+                }
+                score += best * 0.03f;
+            }
+            suggestedTier = score < 3f ? 1 : score < 4.5f ? 2 : 3;
+            return score;
         }
 
         static float ParseF(string s) =>

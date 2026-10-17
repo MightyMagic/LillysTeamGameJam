@@ -60,7 +60,10 @@ namespace MobileGearSolid.EditorTools
         void RefreshFiles()
         {
             files = Directory.Exists(LevelDir)
-                ? Directory.GetFiles(LevelDir, "*.txt").Select(Path.GetFileNameWithoutExtension).Where(f => f != "campaign").OrderBy(f => f).ToArray()
+                ? Directory.GetFiles(LevelDir, "*.txt", SearchOption.AllDirectories)
+                    .Select(f => f.Replace(Path.DirectorySeparatorChar, '/').Substring(LevelDir.Length + 1))
+                    .Select(f => f.Substring(0, f.Length - 4))
+                    .Where(f => f != "campaign").OrderBy(f => f).ToArray()
                 : new string[0];
             if (path == null && files.Length > 0)
             {
@@ -137,11 +140,12 @@ namespace MobileGearSolid.EditorTools
             Validate();
         }
 
-        void CreateNew()
+        void CreateNew(bool raidRoom)
         {
-            string name = "mission_new";
+            string prefix = raidRoom ? "raid/room_new" : "mission_new";
+            string name = prefix;
             int n = 1;
-            while (File.Exists(Path.Combine(LevelDir, name + ".txt"))) name = "mission_new" + (++n);
+            while (File.Exists(Path.Combine(LevelDir, name + ".txt"))) name = prefix + (++n);
             var map = new System.Text.StringBuilder();
             for (int y = 0; y < 12; y++)
             {
@@ -149,10 +153,14 @@ namespace MobileGearSolid.EditorTools
                     map.Append(y == 0 && x == 10 ? 'X' : y == 0 || y == 11 || x == 0 || x == 19 ? '#' : y == 9 && x == 3 ? 'P' : y == 3 && x == 5 ? '0' : y == 3 && x == 15 ? '1' : '.');
                 map.Append('\n');
             }
-            File.WriteAllText(Path.Combine(LevelDir, name + ".txt"),
-                "# Новый уровень. Добавь строки " + name + ".title / .brief / .threats в Texts/texts.txt\n" +
-                "# и имя файла в Levels/campaign.txt, чтобы он появился в меню.\n\n" +
-                "[mission]\nobjectives = extract\nsides = nokills\n\n[map]\n" + map + "\n[guards]\n0 1\n");
+            string head = raidRoom
+                ? "# Комната «Ночного рейда»: попадает в забеги автоматически. tier — ступень сложности 1..3,\n" +
+                  "# ориентируйся на автооценку сложности слева. Поставь сундук '$', чтобы игрок мог взять карточку.\n\n" +
+                  "[mission]\ntier = 1\nobjectives = extract\n"
+                : "# Новый уровень. Добавь строки " + name + ".title / .brief / .threats в Texts/texts.txt\n" +
+                  "# и имя файла в Levels/campaign.txt, чтобы он появился в меню.\n\n" +
+                  "[mission]\nobjectives = extract\nsides = nokills\n";
+            File.WriteAllText(Path.Combine(LevelDir, name + ".txt"), head + "\n[map]\n" + map + "\n[guards]\n0 1\n");
             AssetDatabase.Refresh();
             RefreshFiles();
             Load(System.Array.IndexOf(files, name));
@@ -262,7 +270,8 @@ namespace MobileGearSolid.EditorTools
             int sel = EditorGUILayout.Popup(fileIndex, files, EditorStyles.toolbarPopup, GUILayout.Width(180));
             if (sel != fileIndex && (!dirty || EditorUtility.DisplayDialog("Несохранённые изменения", "Переключиться без сохранения?", "Да", "Нет")))
                 Load(sel);
-            if (GUILayout.Button("Новый", EditorStyles.toolbarButton, GUILayout.Width(60))) CreateNew();
+            if (GUILayout.Button("Новый", EditorStyles.toolbarButton, GUILayout.Width(60))) CreateNew(false);
+            if (GUILayout.Button("Новая комната рейда", EditorStyles.toolbarButton, GUILayout.Width(140))) CreateNew(true);
             GUI.enabled = path != null;
             if (GUILayout.Button(dirty ? "Сохранить *" : "Сохранить", EditorStyles.toolbarButton, GUILayout.Width(90))) Save();
             if (GUILayout.Button("Откатить", EditorStyles.toolbarButton, GUILayout.Width(70))) Load(fileIndex);
@@ -317,6 +326,10 @@ namespace MobileGearSolid.EditorTools
             if (EditorGUI.EndChangeCheck()) { dirty = true; Validate(); }
 
             EditorGUILayout.Space();
+            var est = LevelDef.Parse(files[fileIndex], header + "\n[map]\n" + string.Join("\n", grid.Select(r => new string(r))) + "\n" + footer);
+            float score = est.EstimateDifficulty(out int tier);
+            string tierNote = files[fileIndex].StartsWith("raid/") && est.tier != tier ? $"  ⚠ в файле tier = {est.tier}" : "";
+            EditorGUILayout.HelpBox($"Оценка сложности: {score:0.0} → ступень {tier}{tierNote}\n(до 3.0 — ступень 1, до 4.5 — ступень 2, выше — ступень 3)", MessageType.None);
             if (problems.Count == 0) EditorGUILayout.HelpBox("Проверка: всё достижимо ✓", MessageType.Info);
             else EditorGUILayout.HelpBox(string.Join("\n", problems.Take(12)), MessageType.Warning);
             EditorGUILayout.HelpBox("Формат файлов и команды сценария описаны в LEVELS.md в корне проекта.", MessageType.None);

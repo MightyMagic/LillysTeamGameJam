@@ -3,9 +3,7 @@ using UnityEngine;
 
 namespace MobileGearSolid
 {
-    public enum Upgrade { Magazine, Decoy, Armor }
-
-    /// Meta progression stored in PlayerPrefs: completed levels, best ranks, credits, upgrades.
+    /// Progress stored in PlayerPrefs: completed levels, best ranks, credits, best raid (stats live in Meta).
     /// Levels are identified by their id (file name), so reordering campaign.txt keeps saves valid.
     public static class Progress
     {
@@ -36,20 +34,11 @@ namespace MobileGearSolid
             PlayerPrefs.Save();
         }
 
-        public static bool Has(Upgrade u) => PlayerPrefs.GetInt("ns_up_" + u, 0) == 1;
-
-        public static int Cost(Upgrade u) => u == Upgrade.Armor ? 250 : 150;
-
-        public static string Name(Upgrade u) =>
-            Loc.T(u == Upgrade.Magazine ? "upgrade.magazine" : u == Upgrade.Decoy ? "upgrade.decoy" : "upgrade.armor");
-
-        public static bool Buy(Upgrade u)
+        /// Most rooms cleared in a single Night Raid.
+        public static int BestRaid
         {
-            if (Has(u) || Credits < Cost(u)) return false;
-            Credits -= Cost(u);
-            PlayerPrefs.SetInt("ns_up_" + u, 1);
-            PlayerPrefs.Save();
-            return true;
+            get => PlayerPrefs.GetInt("ns_raid_best", 0);
+            set { PlayerPrefs.SetInt("ns_raid_best", value); PlayerPrefs.Save(); }
         }
 
         public static void ResetAll()

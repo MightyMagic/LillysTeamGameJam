@@ -43,6 +43,7 @@ namespace MobileGearSolid
             ('^', new Color(0.95f, 0.95f, 0.7f), "лампа на потолке"),
             ('P', new Color(0.3f, 0.6f, 1f), "старт игрока"),
             ('x', new Color(1f, 0.8f, 0.4f), "коробка, чтобы прятаться"),
+            ('$', new Color(0.3f, 1f, 1f), "сундук с карточками (рейд)"),
             ('K', new Color(1f, 0.55f, 0.5f), "пропуск"),
             ('T', new Color(0.9f, 0.8f, 0.5f), "разведданные"),
             ('R', new Color(0.6f, 0.7f, 0.4f), "патроны"),
@@ -177,6 +178,14 @@ namespace MobileGearSolid
                         case 'R': SpawnPickup(PickupKind.Ammo, x, y); break;
                         case 'M': SpawnPickup(PickupKind.Medkit, x, y); break;
                         case 'W': SpawnPickup(PickupKind.Decoy, x, y); break;
+                        case '$':
+                        {
+                            blocked[x, y] = true;
+                            var chest = new GameObject("Chest").AddComponent<Chest>();
+                            chest.transform.SetParent(transform, false);
+                            chest.Init(center);
+                            break;
+                        }
                         case 'x':
                         {
                             var box = new GameObject("HideBox").AddComponent<HideBox>();
