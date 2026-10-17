@@ -20,6 +20,11 @@ menu.locked = ЗАКРЫТО — пройди предыдущую миссию
 menu.not_done = Не пройдена
 menu.start_here = Новичок? Начни отсюда
 menu.best_rank = Лучший ранг: {0}
+menu.completed = Пройдена
+menu.gear = ПОКУПКА СНАРЯЖЕНИЯ    <color=#ffd060>Кредиты: {0}</color>
+menu.bought = КУПЛЕНО
+menu.price = Цена: {0}
+menu.gear_hint = Улучшения расширяют тактику, но не обязательны для прохождения.
 menu.reset = Сбросить прогресс
 
 
@@ -185,6 +190,13 @@ tut.end.1 = Чисто сработано, Биг Босс. Добро пожа�
 tut.end.2 = Майор... Держи связь.
 tut.caught = {0}! Ничего страшного — это тренировка. Возвращаю тебя назад, попробуй ещё раз.
 
+# Комнатная камера: пробный участок миссии 02
+room.warehouse = СКЛАД
+room.passage = КОРИДОР · НИЖНИЙ ПРОХОД
+room.hall = КОРИДОР · ЦЕНТРАЛЬНЫЙ ПРОХОД
+room.power = ЭЛЕКТРОЩИТОВАЯ
+room.east = ПРАВЫЙ ПРОХОД
+room.server = СЕРВЕРНАЯ
 # =====================================================================
 #  МЕТА-СЛОЙ: меню режимов, корабль (прокачка), ночной рейд, карточки
 # =====================================================================
@@ -267,3 +279,26 @@ toast.card = Карточка: {0}
 toast.raid_room = Ночной рейд: комната {0}/{1} — найди выход
 toast.second_chance = ВТОРОЙ ШАНС! Ты выжил с 1 HP
 hud.raid_title = РЕЙД · комната {0}/{1} · ступень {2}
+room.training = УЧЕБНЫЙ ЗАЛ
+room.stealth = УЧАСТОК СКРЫТНОСТИ
+room.training_exit = УЧЕБНЫЙ ПРОХОД
+room.archive = АРХИВ
+room.west = ЛЕВЫЙ ПРОХОД
+room.supplies = СКЛАД СНАБЖЕНИЯ
+room.guardroom = ПОСТ ОХРАНЫ
+room.storage = СКЛАД
+room.entry = ВХОДНОЙ ЗАЛ
+room.garage = ГАРАЖ
+room.south_passage = ЮЖНЫЙ ПРОХОД
+room.prototype = ЛАБОРАТОРИЯ
+room.north_passage = СЕВЕРНЫЙ ПРОХОД
+room.offices = ОФИСЫ
+room.armory = ОРУЖЕЙНАЯ
+room.raid_hall = ЗАЛ
+room.raid_cache = ХРАНИЛИЩЕ
+room.raid_entry = ВХОДНОЙ ЗАЛ
+room.raid_patrol = ПОСТ ОХРАНЫ
+room.raid_passage = ПРОХОД
+room.raid_exit = ВЫХОД
+room.raid_office = ОФИС
+room.raid_store = СКЛАД

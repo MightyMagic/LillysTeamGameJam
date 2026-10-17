@@ -10,7 +10,7 @@ namespace MobileGearSolid
     public class TouchButton : MonoBehaviour, IPointerDownHandler, IPointerUpHandler
     {
         public Image ring, icon, glow;
-        public Text caption;
+        public Text caption, keyHint;
         public bool highlighted;
         Action onPress;
         bool active = true, pressed;
@@ -29,6 +29,7 @@ namespace MobileGearSolid
             b.icon.rectTransform.At(new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(size * 0.55f, size * 0.55f));
             b.icon.raycastTarget = false;
             var hint = UIKit.Label(ring.transform, keyHint, 22, UIKit.Dim, TextAnchor.MiddleCenter);
+            b.keyHint = hint;
             hint.rectTransform.At(new Vector2(0.5f, 0f), new Vector2(0.5f, 1f), new Vector2(0, -4), new Vector2(200, 30));
             b.caption = UIKit.Label(ring.transform, "", 28, UIKit.TextCol, TextAnchor.MiddleCenter);
             b.caption.rectTransform.At(new Vector2(0.5f, 1f), new Vector2(0.5f, 0f), new Vector2(0, 6), new Vector2(380, 40));

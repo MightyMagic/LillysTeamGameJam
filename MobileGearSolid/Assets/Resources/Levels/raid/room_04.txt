@@ -20,3 +20,9 @@ C............#.....^.....#
 
 [guards]
 0
+
+[camera]
+# World tiles; origin at bottom-left. Camera changes never pause gameplay.
+raid_hall fixed 0 0 13 10
+raid_entry fixed 13 0 13 3
+raid_cache fixed 13 3 13 7

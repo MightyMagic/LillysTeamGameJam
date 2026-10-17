@@ -33,6 +33,16 @@ sides = time:240, noalerts
 #.c........b#             #.....g......#
 #############             ##############
 
+[camera]
+# x/y/width/height in world tiles; map origin is bottom-left.
+warehouse fixed 0 0 13 10
+passage x 13 6 13 4
+hall y 13 10 13 14
+power fixed 0 10 13 8
+# Continue the framed view through the eastern passage and server room.
+east y 26 0 14 18
+server fixed 26 18 14 6
+
 [guards]
 0 1
 2 3

@@ -24,3 +24,11 @@ C...4...............5....C
 2 look=down hp=3
 3
 45
+
+[camera]
+# World tiles; origin at bottom-left. Camera changes never pause gameplay.
+raid_passage x 0 0 26 6
+raid_patrol fixed 0 6 6 5
+raid_office fixed 6 6 6 5
+raid_store fixed 12 6 6 5
+raid_exit fixed 18 6 8 5

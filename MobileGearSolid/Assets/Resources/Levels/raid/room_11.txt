@@ -23,3 +23,9 @@ objectives = extract
 01 hp=3
 2 look=right
 3 hp=3
+
+[camera]
+# World tiles; origin at bottom-left. Camera changes never pause gameplay.
+raid_hall fixed 0 0 11 11
+raid_entry fixed 11 0 15 4
+raid_cache fixed 11 4 15 7

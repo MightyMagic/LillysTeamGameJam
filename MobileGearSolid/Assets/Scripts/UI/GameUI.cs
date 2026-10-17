@@ -20,6 +20,10 @@ namespace MobileGearSolid
         TouchButton shootBtn, interactBtn, decoyBtn;
         VirtualJoystick joystick;
         float bannerTime, toastTime;
+        bool compactHUD;
+        RectTransform objectivePanel, statusPanel, heartsRow, counters, pauseButton;
+        readonly Image[] frameBars = new Image[4];
+        Text roomLabel;
 
         // dialogue widgets
         Text dialogName, dialogText, dialogHint;
@@ -46,6 +50,13 @@ namespace MobileGearSolid
             var ui = go.AddComponent<GameUI>();
             ui.game = game;
             ui.root = (RectTransform)go.transform;
+            // Black bars clear the unused viewport area, including during a change of room aspect.
+            for (int i = 0; i < ui.frameBars.Length; i++)
+            {
+                ui.frameBars[i] = UIKit.Img(ui.root, "CameraFrame", Color.black);
+                ui.frameBars[i].raycastTarget = false;
+                ui.frameBars[i].gameObject.SetActive(false);
+            }
             ui.menu = UIKit.Rect(ui.root, "Menu").Fill();
             ui.ship = UIKit.Rect(ui.root, "Ship").Fill();
             ui.briefing = UIKit.Rect(ui.root, "Briefing").Fill();
@@ -65,7 +76,7 @@ namespace MobileGearSolid
             ship.gameObject.SetActive(screen == ship);
             briefing.gameObject.SetActive(screen == briefing);
             cards.gameObject.SetActive(screen == cards);
-            hud.gameObject.SetActive(screen == hud || screen == pause || screen == result || screen == dialog);
+            hud.gameObject.SetActive(screen == hud || screen == pause || screen == dialog);
             dialog.gameObject.SetActive(screen == dialog);
             pause.gameObject.SetActive(screen == pause);
             result.gameObject.SetActive(screen == result);
@@ -117,10 +128,9 @@ namespace MobileGearSolid
                 int idx = i;
                 string id = campaign[i];
                 bool unlocked = Progress.IsUnlocked(campaign, i);
-                int best = Progress.BestRank(id);
                 string sub = !unlocked ? Loc.T("menu.locked")
                            : !Progress.IsDone(id) ? Loc.T(i == 0 ? "menu.start_here" : "menu.not_done")
-                           : Loc.F("menu.best_rank", MissionState.RankName((Rank)best));
+                           : Loc.T("menu.completed");
                 UIKit.Btn(left, $"{i:00}  {Loc.T(id + ".title")}\n<size=24>{sub}</size>", () => game.StartMission(idx), 34, unlocked).Size(112);
             }
 
@@ -158,7 +168,6 @@ namespace MobileGearSolid
             foreach (var o in def.objectives) sb.Append($"  {n++}. {LevelDef.ObjectiveLabel(o)}\n");
             sb.Append($"<color=#ffd060>{Loc.T("brief.sides")}</color>\n");
             foreach (var s in def.sides) sb.Append($"  • {s.Label}\n");
-            sb.Append("  • " + Loc.T("brief.ranks") + "\n");
             sb.Append($"<color=#ffd060>{Loc.T("brief.threats")}</color>\n  " + def.Threats);
             UIKit.Label(c, sb.ToString(), 28, UIKit.TextCol).Size(390);
             UIKit.Label(c, Loc.T("brief.legend"), 24, UIKit.Dim).Size(70);
@@ -195,6 +204,7 @@ namespace MobileGearSolid
 
             // --- objective panel (top-left)
             var objBg = UIKit.Img(hud, "ObjectiveBg", new Color(0, 0, 0, 0.6f));
+            objectivePanel = objBg.rectTransform;
             objBg.rectTransform.At(new Vector2(0, 1), new Vector2(0, 1), new Vector2(20, -20), new Vector2(760, 246));
             var accent = UIKit.Img(objBg.transform, "Accent", UIKit.Amber);
             accent.rectTransform.anchorMin = new Vector2(0, 0);
@@ -212,8 +222,9 @@ namespace MobileGearSolid
 
             // --- status panel (top-right): hearts row + ammo / traps / intel / keycard
             var stBg = UIKit.Img(hud, "StatusBg", new Color(0, 0, 0, 0.6f));
+            statusPanel = stBg.rectTransform;
             stBg.rectTransform.At(new Vector2(1, 1), new Vector2(1, 1), new Vector2(-126, -20), new Vector2(540, 176));
-            var heartsRow = UIKit.Rect(stBg.transform, "Hearts");
+            heartsRow = UIKit.Rect(stBg.transform, "Hearts");
             heartsRow.At(new Vector2(1, 1), new Vector2(1, 1), new Vector2(-16, -12), new Vector2(510, 72));
             hearts = new Image[MaxHearts];
             for (int i = 0; i < MaxHearts; i++)
@@ -222,7 +233,7 @@ namespace MobileGearSolid
                 hearts[i].rectTransform.At(new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(-i * 76, 0), new Vector2(72, 72));
                 hearts[i].raycastTarget = false;
             }
-            var counters = UIKit.Rect(stBg.transform, "Counters");
+            counters = UIKit.Rect(stBg.transform, "Counters");
             counters.At(new Vector2(1, 0), new Vector2(1, 0), new Vector2(-16, 12), new Vector2(510, 72));
             float x = 0;
             intelText = Counter(counters, "item_intel", ref x);
@@ -241,6 +252,7 @@ namespace MobileGearSolid
             hl.childForceExpandWidth = hl.childForceExpandHeight = false;
 
             var pauseBtn = UIKit.Btn(hud, "II", game.Pause, 40);
+            pauseButton = pauseBtn.GetComponent<RectTransform>();
             pauseBtn.GetComponent<RectTransform>().At(new Vector2(1, 1), new Vector2(1, 1), new Vector2(-20, -20), new Vector2(90, 90));
 
             timerText = UIKit.Label(hud, "", 30, UIKit.Dim, TextAnchor.MiddleCenter);
@@ -278,10 +290,73 @@ namespace MobileGearSolid
             progressLabel.rectTransform.At(new Vector2(0.5f, 1), new Vector2(0.5f, 0), new Vector2(0, 4), new Vector2(620, 36));
             progressRoot.gameObject.SetActive(false);
 
+            roomLabel = UIKit.Label(hud, "", 26, UIKit.Dim, TextAnchor.MiddleCenter);
+            roomLabel.rectTransform.At(new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -112), new Vector2(600, 36));
+            roomLabel.gameObject.SetActive(false);
             joystick = VirtualJoystick.Create(root);
             shootBtn = TouchButton.Create(root, "ui_gun", Loc.T("key.shoot"), new Vector2(-170, 190), 210, GameInput.PressShoot);
             interactBtn = TouchButton.Create(root, "ui_hand", Loc.T("key.interact"), new Vector2(-420, 130), 190, GameInput.PressInteract);
             decoyBtn = TouchButton.Create(root, "ui_decoy", Loc.T("key.trap"), new Vector2(-150, 420), 140, GameInput.PressDecoy);
+        }
+
+        /// Shared compact layout for every playable level.
+        public void ConfigureCompactHUD(bool enabled)
+        {
+            compactHUD = enabled;
+            foreach (var b in new[] { shootBtn, interactBtn, decoyBtn }) b.keyHint.gameObject.SetActive(!enabled);
+            objectivePanel.sizeDelta = enabled ? new Vector2(720, 112) : new Vector2(760, 246);
+            missionText.fontSize = enabled ? 22 : 26;
+            objectiveText.fontSize = enabled ? 32 : 38;
+            objectiveText.rectTransform.anchoredPosition = new Vector2(20, enabled ? -42 : -48);
+            objectiveText.rectTransform.sizeDelta = new Vector2(enabled ? 680 : 720, enabled ? 64 : 96);
+            sideText.gameObject.SetActive(!enabled); // contracts remain in briefing and results
+            statusPanel.sizeDelta = enabled ? new Vector2(460, 112) : new Vector2(540, 176);
+            statusPanel.anchoredPosition = new Vector2(enabled ? -112 : -126, -20);
+            heartsRow.localScale = Vector3.one * (enabled ? 0.56f : 1f);
+            heartsRow.anchoredPosition = new Vector2(-16, enabled ? -4 : -12);
+            counters.localScale = Vector3.one * (enabled ? 0.68f : 1f);
+            counters.anchoredPosition = new Vector2(-16, enabled ? 2 : 12);
+            pauseButton.sizeDelta = Vector2.one * (enabled ? 80 : 90);
+            // Preserve the original floating stick size, home position and touch area.
+            LayoutButton(shootBtn, new Vector2(-170, 190), 210);
+            LayoutButton(interactBtn, new Vector2(-420, 130), 190);
+            LayoutButton(decoyBtn, new Vector2(-150, 420), 140);
+            progressRoot.anchoredPosition = new Vector2(0, enabled ? 174 : 240);
+            toastText.rectTransform.anchoredPosition = new Vector2(0, enabled ? 222 : 330);
+            boxHint.GetComponent<RectTransform>().anchoredPosition = new Vector2(0, enabled ? 270 : 390);
+            bannerText.fontSize = enabled ? 30 : 40;
+            bannerText.rectTransform.anchoredPosition = new Vector2(0, enabled ? -154 : -140);
+            alertText.fontSize = enabled ? 30 : 52;
+            alertText.rectTransform.anchoredPosition = new Vector2(0, -56);
+            if (!enabled) roomLabel.gameObject.SetActive(false);
+        }
+
+        static void LayoutButton(TouchButton button, Vector2 pos, float size)
+        {
+            ((RectTransform)button.transform).anchoredPosition = pos;
+            ((RectTransform)button.transform).sizeDelta = Vector2.one * size;
+            button.icon.rectTransform.sizeDelta = Vector2.one * size * 0.55f;
+            button.glow.rectTransform.sizeDelta = Vector2.one * size * 1.3f;
+            button.caption.fontSize = 26;
+        }
+
+        public void SetCameraFrame(Rect viewport, string areaId)
+        {
+            bool framed = viewport != new Rect(0, 0, 1, 1);
+            SetBar(frameBars[0], Vector2.zero, new Vector2(viewport.xMin, 1), framed);
+            SetBar(frameBars[1], new Vector2(viewport.xMax, 0), Vector2.one, framed);
+            SetBar(frameBars[2], new Vector2(viewport.xMin, 0), new Vector2(viewport.xMax, viewport.yMin), framed);
+            SetBar(frameBars[3], new Vector2(viewport.xMin, viewport.yMax), new Vector2(viewport.xMax, 1), framed);
+            roomLabel.gameObject.SetActive(areaId != null);
+            if (areaId != null) roomLabel.text = Loc.T("room." + areaId);
+        }
+
+        static void SetBar(Image bar, Vector2 min, Vector2 max, bool visible)
+        {
+            bar.gameObject.SetActive(visible);
+            bar.rectTransform.anchorMin = min;
+            bar.rectTransform.anchorMax = max;
+            bar.rectTransform.offsetMin = bar.rectTransform.offsetMax = Vector2.zero;
         }
 
         /// Icon + big number, laid out right-to-left inside `parent`.
@@ -409,7 +484,7 @@ namespace MobileGearSolid
             interactBtn.SetActive(prompt != null);
             interactBtn.caption.text = prompt ?? "";
             shootBtn.SetActive(p.ammo > 0 && !p.InBox);
-            shootBtn.caption.text = p.Target != null ? "<color=#ff6a5a>" + Loc.T("hud.target") + "</color>" : "";
+            shootBtn.caption.text = !compactHUD && p.Target != null ? "<color=#ff6a5a>" + Loc.T("hud.target") + "</color>" : "";
             decoyBtn.SetActive(p.decoys > 0 && !p.InBox);
 
             UpdateDamageOverlay(p, dt);
@@ -460,6 +535,12 @@ namespace MobileGearSolid
             RectTransformUtility.ScreenPointToLocalPointInRectangle(hud, sp, null, out var local);
             var r = hud.rect;
             var inner = new Rect(r.xMin + PointerLeft, r.yMin + PointerBottom, r.width - PointerLeft - PointerRight, r.height - PointerTop - PointerBottom);
+            if (compactHUD && game.RoomCameraActive)
+            {
+                Rect v = cam.rect;
+                inner = new Rect(r.xMin + v.x * r.width + 24, r.yMin + v.y * r.height + 30,
+                    v.width * r.width - 48, v.height * r.height - 60);
+            }
             float dist = Vector2.Distance(p.Pos, world);
             pointerDistance.gameObject.SetActive(true);
             pointerDistance.text = Loc.F("hud.distance", Mathf.RoundToInt(dist));
@@ -865,12 +946,6 @@ namespace MobileGearSolid
             var c = Window(result, new Vector2(1300, 940), true);
             UIKit.Label(c, Loc.T("result.success"), 54, UIKit.Green, TextAnchor.MiddleCenter).Size(70);
 
-            var rank = m.Rank;
-            Color rc = rank == Rank.Ghost ? UIKit.Green : rank == Rank.SilentOperator ? UIKit.Amber : UIKit.Red;
-            var rl = UIKit.Label(c, Loc.F("result.rank", MissionState.RankName(rank)), 72, rc, TextAnchor.MiddleCenter);
-            rl.fontStyle = FontStyle.Bold;
-            rl.Size(100);
-
             var sb = new StringBuilder();
             sb.Append(Loc.F("result.stats", UIKit.Time(m.time), m.alerts, m.kills, m.intel, m.intelTotal, credits)).Append('\n');
             if (m.alerts > 0 && m.lastAlertReason != null)
@@ -881,8 +956,6 @@ namespace MobileGearSolid
                 bool ok = m.SideDone(s);
                 sb.Append($"<color={(ok ? "#8fe39a" : "#e36a5a")}>{(ok ? "■ " + Loc.T("result.done") : "□ " + Loc.T("result.not_done"))}</color> — {s.Label}\n");
             }
-            sb.Append($"\n<color=#ffd060>{Loc.T("result.next_reward")}</color>\n");
-            sb.Append(Loc.T(rank == Rank.Compromised ? "result.hint_silent" : rank == Rank.SilentOperator ? "result.hint_ghost" : "result.hint_max"));
             UIKit.Label(c, sb.ToString(), 30, UIKit.TextCol, TextAnchor.UpperCenter).Size(470);
 
             var row = UIKit.Row(c, "Buttons", 24f);

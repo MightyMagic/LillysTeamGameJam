@@ -36,3 +36,14 @@ C.............#..2......3.D......rrr..#......#
 6789
 01
 AB
+
+[camera]
+# World tiles; origin at bottom-left. Camera changes never pause gameplay.
+archive fixed 0 0 7 7
+west fixed 7 0 7 7
+supplies fixed 0 7 14 7
+guardroom fixed 0 14 14 6
+storage follow 14 0 24 14
+power fixed 14 14 12 9
+server fixed 26 14 12 9
+east y 38 0 8 23

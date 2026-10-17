@@ -22,3 +22,7 @@ C...1...cc.$..cc....2....#
 0 look=down hp=3
 12
 3 look=up
+
+[camera]
+# World tiles; origin at bottom-left. Camera changes never pause gameplay.
+raid_hall x 0 0 26 10

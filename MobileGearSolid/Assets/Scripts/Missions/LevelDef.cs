@@ -48,6 +48,7 @@ namespace MobileGearSolid
         public List<string> map = new List<string>();
         public List<GuardDef> guards = new List<GuardDef>();
         public List<string> script = new List<string>();
+        public List<CameraArea> cameraAreas = new List<CameraArea>();
         public ObjectiveKind[] objectives = { ObjectiveKind.Extract };
         public SideTask[] sides = new SideTask[0];
         public bool tutorial;
@@ -133,6 +134,10 @@ namespace MobileGearSolid
                     case "mission": ParseSetting(def, line); break;
                     case "guards": def.guards.Add(ParseGuard(line)); break;
                     case "script": def.script.Add(line); break;
+                    case "camera":
+                        var area = CameraArea.Parse(line);
+                        if (area != null) def.cameraAreas.Add(area);
+                        break;
                 }
             }
             return def;

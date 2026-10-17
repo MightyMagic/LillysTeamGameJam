@@ -45,3 +45,16 @@ A B
 F look=up
 G H
 I J speed=1.3
+
+[camera]
+# World tiles; origin at bottom-left. Camera changes never pause gameplay.
+entry x 0 0 20 7
+garage x 20 0 24 7
+south_passage x 12 7 19 1
+west y 0 7 12 12
+prototype fixed 12 8 19 10
+east y 31 7 13 12
+north_passage x 12 18 19 2
+archive fixed 0 19 14 7
+offices fixed 14 19 17 7
+armory fixed 31 19 13 7

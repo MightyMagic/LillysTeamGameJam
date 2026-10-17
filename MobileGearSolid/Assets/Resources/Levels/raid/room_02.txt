@@ -20,3 +20,8 @@ objectives = extract
 
 [guards]
 01
+
+[camera]
+# World tiles; origin at bottom-left. Camera changes never pause gameplay.
+raid_cache fixed 0 0 9 10
+raid_hall x 9 0 17 10

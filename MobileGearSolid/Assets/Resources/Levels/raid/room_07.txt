@@ -22,3 +22,11 @@ objectives = extract
 01
 2 look=down
 3
+
+[camera]
+# World tiles; origin at bottom-left. Camera changes never pause gameplay.
+raid_entry fixed 0 0 9 4
+raid_patrol fixed 0 4 9 6
+raid_passage fixed 9 0 11 4
+raid_cache fixed 9 4 11 6
+raid_exit fixed 20 0 6 10

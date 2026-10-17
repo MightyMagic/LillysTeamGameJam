@@ -34,6 +34,14 @@ namespace MobileGearSolid
         public const float AlertDuration = 18f;
         const float PanelDispatchDelay = 10f;
 
+        public string CameraAreaId => roomCamera != null ? roomCamera.AreaId : null;
+        public bool RoomCameraActive => roomCamera != null && roomCamera.Active;
+        const float RoomMoveTime = 0.28f; // visual transition only; gameplay and held input keep running
+        RoomCamera roomCamera;
+        float roomTransitionTime;
+        Vector3 roomMoveFrom;
+        float roomZoomFrom;
+        Rect roomViewportFrom;
         Camera cam;
         Light2D global;
         Transform levelRoot;
@@ -111,6 +119,12 @@ namespace MobileGearSolid
 
         void ClearLevel()
         {
+            roomCamera = null;
+            roomTransitionTime = 0f;
+            cam.rect = new Rect(0, 0, 1, 1);
+            cam.orthographicSize = 6.5f;
+            UI.SetCameraFrame(cam.rect, null);
+            UI.ConfigureCompactHUD(false);
             if (levelRoot != null) Destroy(levelRoot.gameObject);
             levelRoot = null;
             Level = null;
@@ -206,6 +220,10 @@ namespace MobileGearSolid
 
             Player = Player.Spawn(Level, Level.playerStart, 1, 0, 0);
             ApplyStats(true);
+            // Campaign, tutorial, raid rooms and editor maps share the same framing and HUD.
+            roomCamera = RoomCamera.ForLevel(Def);
+            roomCamera.Select(Player.Pos);
+            UI.ConfigureCompactHUD(true);
             SnapCamera();
 
             if (Def.script.Count > 0)
@@ -461,6 +479,41 @@ namespace MobileGearSolid
         void LateUpdate()
         {
             if (Player == null || Level == null) return;
+            if (roomCamera != null)
+            {
+                if (phase == Phase.Playing && roomCamera.Select(Player.Pos))
+                {
+                    roomMoveFrom = cam.transform.position;
+                    roomZoomFrom = cam.orthographicSize;
+                    roomViewportFrom = cam.rect;
+                    roomTransitionTime = 0f;
+                    // Do not clear the joystick or pause the world at a camera boundary.
+                }
+                if (roomCamera.Active)
+                {
+                    Rect frame = roomCamera.Frame(Player.Pos);
+                    Vector3 center = new Vector3(frame.center.x, frame.center.y, -10f);
+                    Rect viewport = RoomCamera.Viewport(frame, Screen.width, Screen.height);
+                    roomTransitionTime += Time.unscaledDeltaTime;
+                    if (roomTransitionTime < RoomMoveTime)
+                    {
+                        float t = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(roomTransitionTime / RoomMoveTime));
+                        cam.transform.position = Vector3.Lerp(roomMoveFrom, center, t);
+                        cam.orthographicSize = Mathf.Lerp(roomZoomFrom, frame.height * 0.5f, t);
+                        cam.rect = LerpRect(roomViewportFrom, viewport, t);
+                    }
+                    else
+                    {
+                        cam.transform.position = center;
+                        cam.orthographicSize = frame.height * 0.5f;
+                        cam.rect = viewport;
+                    }
+                    UI.SetCameraFrame(cam.rect, roomCamera.AreaId);
+                    return;
+                }
+                // Never switch a mission to a full-screen follow camera.
+                return;
+            }
             Vector3 target = TargetCamPos();
             Vector3 p = Vector3.Lerp(cam.transform.position, target, 1f - Mathf.Exp(-8f * Time.unscaledDeltaTime));
             if (shake > 0f)
@@ -480,7 +533,23 @@ namespace MobileGearSolid
             return new Vector3(x, y, -10f);
         }
 
-        void SnapCamera() => cam.transform.position = TargetCamPos();
+        static Rect LerpRect(Rect a, Rect b, float t) => new Rect(Vector2.Lerp(a.position, b.position, t), Vector2.Lerp(a.size, b.size, t));
+
+        void SnapCamera()
+        {
+            // A tutorial checkpoint can teleport the player into another authored area.
+            roomCamera?.Select(Player.Pos);
+            if (RoomCameraActive)
+            {
+                Rect frame = roomCamera.Frame(Player.Pos);
+                cam.transform.position = new Vector3(frame.center.x, frame.center.y, -10f);
+                cam.orthographicSize = frame.height * 0.5f;
+                cam.rect = RoomCamera.Viewport(frame, Screen.width, Screen.height);
+                roomTransitionTime = RoomMoveTime;
+                UI.SetCameraFrame(cam.rect, roomCamera.AreaId);
+            }
+            else cam.transform.position = TargetCamPos();
+        }
 
         public void Shake(float amount) => shake = Mathf.Max(shake, amount);
 

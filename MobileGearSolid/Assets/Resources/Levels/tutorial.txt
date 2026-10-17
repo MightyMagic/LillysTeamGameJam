@@ -61,3 +61,9 @@ wait reach 7
 say major tut.end.1
 say boss tut.end.2
 end
+
+[camera]
+# World tiles; origin at bottom-left. Camera changes never pause gameplay.
+training x 0 3 18 5
+stealth x 18 2 24 7
+training_exit x 42 0 21 9
