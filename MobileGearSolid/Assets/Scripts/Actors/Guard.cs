@@ -539,7 +539,7 @@ namespace MobileGearSolid
             {
                 icon.sprite = Art.S(iconName);
                 iconPop = Mathf.Max(0f, iconPop - dt * 4f);
-                float s = 1f + iconPop * 0.8f;
+                float s = iconName == "fx_alert" ? 1f : 1f + iconPop * 0.8f;
                 icon.transform.localScale = new Vector3(s, s, 1f);
                 icon.color = state == GuardState.Patrol ? new Color(1, 1, 1, 0.4f + suspicion) : Color.white;
             }

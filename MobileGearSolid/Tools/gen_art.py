@@ -526,24 +526,11 @@ def lamp():
 
 
 def alert_mark():
-    """The classic spotted '!': tall tapered red stroke + dot, white inner rim, thick black outline."""
+    """Flat red exclamation: straight stem and square dot, no outline or shading."""
     c = C(20, 30)
-    red, hi, dark = (232, 26, 30), (255, 130, 120), (150, 10, 16)
-    # tapered stem: wide at the top, narrow at the bottom
-    for y in range(3, 19):
-        w = round(8 - (y - 3) * 4 / 15)          # 8 -> 4 px
-        x0 = 10 - w // 2
-        c.rect(x0, y, w, 1, red)
-        c.set(x0, y, hi)                          # left highlight
-        c.set(x0 + w - 1, y, dark)                # right shade
-    c.rect(6, 3, 8, 1, hi)                        # top highlight
-    # dot
-    c.rect(7, 21, 6, 5, red)
-    c.rect(7, 21, 6, 1, hi)
-    c.rect(7, 21, 1, 5, hi)
-    c.rect(12, 22, 1, 4, dark)
-    c.outline((255, 255, 255))                    # white rim
-    c.outline((10, 4, 4))                         # black outline
+    red = (232, 26, 30)
+    c.rect(7, 3, 6, 16, red)
+    c.rect(7, 22, 6, 6, red)
     c.save("fx_alert")
 
 
