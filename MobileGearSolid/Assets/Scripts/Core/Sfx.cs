@@ -6,7 +6,7 @@ namespace MobileGearSolid
     /// Tiny procedural chiptune sound set, so the prototype needs no audio assets.
     public static class Sfx
     {
-        static AudioSource source;
+        static AudioSource source, alertSource;
         static readonly Dictionary<string, AudioClip> clips = new Dictionary<string, AudioClip>();
         const int Rate = 44100;
 
@@ -14,6 +14,11 @@ namespace MobileGearSolid
         {
             source = host.AddComponent<AudioSource>();
             source.playOnAwake = false;
+            source.spatialBlend = 0f;
+            alertSource = host.AddComponent<AudioSource>();
+            alertSource.playOnAwake = false;
+            alertSource.spatialBlend = 0f;
+            alertSource.priority = 16;
             // Clips are created at runtime, so Unity destroys them when Play Mode stops. With domain
             // reload disabled this static dictionary survives and would hold dead clips: rebuild every time.
             foreach (var c in clips.Values)
@@ -86,8 +91,18 @@ namespace MobileGearSolid
         {
             if (source == null) return;
             var custom = AudioConfig.Get("sfx." + id, "Sfx/" + id, 1f, out float customVolume);
-            if (custom != null) source.PlayOneShot(custom, volume * customVolume);
-            else if (clips.TryGetValue(id, out var c)) source.PlayOneShot(c, volume);
+            if (custom == null)
+            {
+                if (!clips.TryGetValue(id, out custom) || custom == null) return;
+                customVolume = 1f;
+            }
+            var output = id == "alert" ? alertSource : source;
+            if (id == "alert")
+            {
+                output.Stop();
+                Music.DuckForAlert();
+            }
+            output.PlayOneShot(custom, volume * customVolume);
         }
     }
 }

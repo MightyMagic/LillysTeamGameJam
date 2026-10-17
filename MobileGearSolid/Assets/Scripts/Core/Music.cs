@@ -12,6 +12,7 @@ namespace MobileGearSolid
         AudioSource a, b;          // a = current, b = fading out
         float targetVolume;
         string current;
+        float duckUntil;
 
         public static void Init(GameObject host)
         {
@@ -28,6 +29,8 @@ namespace MobileGearSolid
             s.playOnAwake = false;
             s.volume = 0f;
             s.ignoreListenerPause = true;
+            s.spatialBlend = 0f;
+            s.priority = 192;
             return s;
         }
 
@@ -48,10 +51,20 @@ namespace MobileGearSolid
             if (clip != null) instance.a.Play();
         }
 
+        public static void DuckForAlert()
+        {
+            if (instance != null) instance.duckUntil = Time.unscaledTime + 1.7f;
+        }
+
         void Update()
         {
             float step = Time.unscaledDeltaTime / FadeTime;
-            a.volume = Mathf.MoveTowards(a.volume, a.clip != null ? targetVolume : 0f, step * Mathf.Max(targetVolume, 0.01f));
+            float volume = targetVolume;
+            if (Game.I != null && current == "level" &&
+                (Game.I.phase == Game.Phase.Dialog || Game.I.phase == Game.Phase.CardPick)) volume *= 0.35f;
+            if (Time.unscaledTime < duckUntil) volume *= 0.2f;
+            a.volume = Mathf.MoveTowards(a.volume, a.clip != null ? volume : 0f, step * Mathf.Max(targetVolume, 0.01f));
+            if (Time.unscaledTime < duckUntil) b.volume = Mathf.Min(b.volume, volume);
             b.volume = Mathf.MoveTowards(b.volume, 0f, step);
             if (b.isPlaying && b.volume <= 0f) b.Stop();
         }

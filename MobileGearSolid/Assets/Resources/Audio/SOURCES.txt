@@ -1,0 +1,25 @@
+Audio sources — Mobile Gear Solid (2026-10-17)
+
+Music/stealth_loop.wav
+Original instrumental 16-bit-style stealth arrangement made for this project
+with Tools/gen_music.py. Musical reference supplied by the user: IMG_1719.MOV
+(recorded MGS gameplay around 1:04:00 in the video below).
+Reference: https://www.youtube.com/watch?v=abSnD5ZjWDM&t=3840
+The supplied 54.705-second recording was analyzed for rhythmic periodicity and
+persistent pitched centres (A/E, with F/D movement). It is a phone recording,
+so these are approximate musical observations, not a verified transcription.
+110 BPM grid with half-time drums (55 BPM backbeat), 32 bars, 69.818 seconds,
+stereo 22050 Hz, PCM 16-bit. Band-limited triangle bass, muted pulse arpeggios,
+short electronic toms, noise percussion and sparse upper-register replies.
+Deterministic synthesis from oscillators and seeded noise; the reference
+recording, speech and game sounds are not embedded in this asset.
+Game mix: 15% volume, lower during dialogue and briefly during the alert cue.
+
+Sfx/alert.mp3
+Requested by the user: the familiar Metal Gear Solid detection/alert cue.
+Source page: https://www.myinstants.com/en/instant/metal-gear-solid-alert/
+Download linked by that page: https://www.myinstants.com/media/sounds/tindeck_1.mp3
+Source title: Metal Gear Solid Alert; uploaded by sheik124.
+Retrieved 2026-10-17. Stored without editing. Duration approximately 1.593 seconds.
+This is a third-party recording; no redistribution licence was specified on the
+source page. The source is recorded here and is not a claim of ownership/licence.
