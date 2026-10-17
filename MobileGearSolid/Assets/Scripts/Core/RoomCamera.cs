@@ -70,7 +70,8 @@ namespace MobileGearSolid
             });
         }
 
-        // A small inset prevents repeated switches while standing on a doorway boundary.
+        // Keep a small hysteresis band around the area being left. Insetting every edge
+        // of the target would block a sideways crossing while walking beside a wall.
         public bool Select(Vector2 player)
         {
             CameraArea candidate = null;
@@ -79,12 +80,12 @@ namespace MobileGearSolid
             // Missing data must not eject a framed mission into full-screen mode.
             // Normal gameplay is covered by authored areas (validated by the Editor checks).
             if (candidate == null || candidate == current) return false;
-            if (candidate != null && current != null)
+            if (current != null)
             {
-                var inner = candidate.bounds;
-                inner.xMin += 0.18f; inner.yMin += 0.18f;
-                inner.xMax -= 0.18f; inner.yMax -= 0.18f;
-                if (!inner.Contains(player)) return false;
+                var retained = current.bounds;
+                retained.xMin -= 0.18f; retained.yMin -= 0.18f;
+                retained.xMax += 0.18f; retained.yMax += 0.18f;
+                if (retained.Contains(player)) return false;
             }
             current = candidate;
             return true;

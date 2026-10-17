@@ -9,7 +9,7 @@ namespace MobileGearSolid.EditorTools
         [MenuItem("Mobile Gear Solid/Check Room Camera Framing")]
         public static void Run()
         {
-            int checks = 0, maps = 0, crossings = 0;
+            int checks = 0, maps = 0, crossings = 0, edgeCrossings = 0;
             void Check(bool condition, string label) { if (!condition) throw new System.Exception(label); checks++; }
             Loc.Reload();
             foreach (string guid in AssetDatabase.FindAssets("t:TextAsset", new[] { "Assets/Resources/Levels" }))
@@ -47,7 +47,24 @@ namespace MobileGearSolid.EditorTools
                         string before = edge.AreaId;
                         edge.Select(next);
                         Check(edge.Active && edge.Frame(next).Contains(next), id + " adjacent cell framed " + cell);
-                        if (before != edge.AreaId) crossings++;
+                        if (before != edge.AreaId)
+                        {
+                            crossings++;
+                            // Sample off-centre travel beside either wall, in both directions.
+                            // A feet collider can be only 0.06 tiles above the lower wall.
+                            Vector2 along = dir.x != 0 ? Vector2.up : Vector2.right;
+                            foreach (float offset in new[] { 0.08f, 0.16f, 0.5f, 0.84f, 0.92f })
+                            {
+                                Vector2 from = p + along * (offset - 0.5f);
+                                Vector2 to = from + (Vector2)dir;
+                                var sample = RoomCamera.ForLevel(d);
+                                sample.Select(from);
+                                Check(sample.AreaId == before, id + " wall-side start " + cell + " offset=" + offset);
+                                Check(sample.Select(to) && sample.AreaId == edge.AreaId && sample.Frame(to).Contains(to), id + " wall-side crossing " + cell + " offset=" + offset);
+                                Check(sample.Select(from) && sample.AreaId == before && sample.Frame(from).Contains(from), id + " reverse wall-side crossing " + cell + " offset=" + offset);
+                                edgeCrossings += 2;
+                            }
+                        }
                     }
                 }
                 foreach (var area in d.cameraAreas)
@@ -77,6 +94,16 @@ namespace MobileGearSolid.EditorTools
             Check(rooms.Select(new Vector2(27,13.5f)) && rooms.AreaId == "east", "east passage stays framed");
             Check(rooms.Select(new Vector2(30,20)) && rooms.AreaId == "server", "server stays framed");
             Check(!rooms.Select(new Vector2(-1,-1)) && rooms.AreaId == "server", "missing data never resets viewport");
+            var nightVisit = LevelDef.Load("mission_03");
+            foreach (float y in new[] { 7.08f, 7.16f, 7.5f })
+            {
+                var corridor = RoomCamera.ForLevel(nightVisit);
+                corridor.Select(new Vector2(30.5f, y));
+                Check(!corridor.Select(new Vector2(31.05f, y)) && corridor.AreaId == "south_passage", "south passage keeps boundary deadband at y=" + y);
+                Check(corridor.Select(new Vector2(31.5f, y)) && corridor.AreaId == "east", "south to east along corridor edge y=" + y);
+                Check(!corridor.Select(new Vector2(30.95f, y)) && corridor.AreaId == "east", "east keeps reverse deadband at y=" + y);
+                Check(corridor.Select(new Vector2(29.5f, y)) && corridor.AreaId == "south_passage", "east to south along corridor edge y=" + y);
+            }
             var draft = new LevelDef();
             for (int y = 0; y < 24; y++) draft.map.Add(new string('.', 40));
             var fallback = RoomCamera.ForLevel(draft);
@@ -87,7 +114,7 @@ namespace MobileGearSolid.EditorTools
             Check(fallback.Active && fallback.AreaId == null && lower.width == 13 && lower.height == 10, "new map has framed fallback without room label");
             Check(upper.center.x > lower.center.x && upper.center.y > lower.center.y && upper.Contains(new Vector2(37,21)), "fallback tracks both axes");
             Check(CameraArea.Parse("test follow 0 0 40 24") != null, "follow authoring parses");
-            Debug.Log($"[RoomCameraChecks] PASS: {checks} checks; {maps} maps; {crossings} adjacent camera crossings");
+            Debug.Log($"[RoomCameraChecks] PASS: {checks} checks; {maps} maps; {crossings} adjacent camera crossings; {edgeCrossings} wall-side crossings");
         }
     }
 }
