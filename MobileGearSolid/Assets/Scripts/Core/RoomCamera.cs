@@ -93,14 +93,13 @@ namespace MobileGearSolid
 
         public Rect Frame(Vector2 player) => current.Frame(player);
 
-        // Letterbox only as needed, keeping the entire room between HUD and touch controls.
+        // The world frame and transition selection remain unchanged; only its on-screen footprint grows.
         public static Rect Viewport(Rect frame, int screenWidth, int screenHeight)
         {
-            float screenAspect = screenWidth / (float)Mathf.Max(1, screenHeight);
-            var available = new Rect(0.02f, 0.19f, 0.96f, 0.67f);
-            float w = available.width, h = w * screenAspect * frame.height / frame.width;
-            if (h > available.height) { h = available.height; w = h * frame.width / frame.height / screenAspect; }
-            return new Rect(available.center - new Vector2(w, h) * 0.5f, new Vector2(w, h));
+            var controls = new List<Rect>(4);
+            GameViewport.AddControlHomes(controls, screenWidth, screenHeight);
+            return GameViewport.Calculate(frame, screenWidth, screenHeight,
+                new Rect(0, 0, screenWidth, screenHeight), controls);
         }
     }
 }

@@ -70,11 +70,11 @@ namespace MobileGearSolid.EditorTools
                 foreach (var area in d.cameraAreas)
                 {
                     Check(area.id != null && !Loc.T("room." + area.id).StartsWith("#"), id + " room label " + area.id);
-                    foreach (var size in new[] { new Vector2Int(1920,1080), new Vector2Int(2400,1080), new Vector2Int(2560,1600), new Vector2Int(2048,1536) })
+                    foreach (var size in new[] { new Vector2Int(1920,1080), new Vector2Int(2400,1080), new Vector2Int(2560,1600), new Vector2Int(2048,1536), new Vector2Int(1280,600), new Vector2Int(844,390), new Vector2Int(915,412) })
                     {
                         var f = area.Frame(area.bounds.center);
                         var v = RoomCamera.Viewport(f, size.x, size.y);
-                        Check(v.xMin >= 0 && v.xMax <= 1 && v.yMin >= .189f && v.yMax <= .861f, id + " frame in safe strip " + size);
+                        Check(v.xMin >= 0 && v.xMax <= 1 && v.yMin >= 0 && v.yMax <= .861f, id + " enlarged frame within screen " + size);
                         float visibleWidth = f.height * size.x * v.width / (size.y * v.height);
                         Check(Mathf.Abs(visibleWidth - f.width) < .01f, id + " aspect preserved " + size);
                     }

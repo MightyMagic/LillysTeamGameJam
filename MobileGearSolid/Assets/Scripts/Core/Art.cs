@@ -36,7 +36,7 @@ namespace MobileGearSolid
         {
             get
             {
-                if (font == null) font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                if (font == null) font = Resources.Load<Font>("Fonts/JuraNS-Regular");
                 return font;
             }
         }

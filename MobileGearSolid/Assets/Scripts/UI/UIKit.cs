@@ -54,6 +54,7 @@ namespace MobileGearSolid
             var rt = Rect(parent, "Text");
             var t = rt.gameObject.AddComponent<Text>();
             t.font = Art.Font;
+            t.fontStyle = FontStyle.Normal;
             t.text = text;
             t.fontSize = size;
             t.color = c;
@@ -62,9 +63,9 @@ namespace MobileGearSolid
             t.verticalOverflow = VerticalWrapMode.Overflow;
             t.raycastTarget = false;
             t.supportRichText = true;
-            var o = rt.gameObject.AddComponent<Outline>();
+            var o = rt.gameObject.AddComponent<Shadow>();
             o.effectColor = new Color(0, 0, 0, 0.8f);
-            o.effectDistance = new Vector2(2, -2);
+            o.effectDistance = new Vector2(1.5f, -1.5f);
             return t;
         }
 

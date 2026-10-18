@@ -1,0 +1,5 @@
+Jura NS Regular: local derivative of Jura Regular (copyright 2019 The Jura Project Authors).
+Licensed under the SIL Open Font License 1.1; see Jura-OFL.txt.
+Modification: zero and zero.alt glyphs contain an internal diagonal stroke instead of the source dot/empty counter.
+Advance metrics and all other glyph outlines are unchanged. Family renamed to Jura NS.
+Reproducible build: ../tools/build-slashed-zero.py

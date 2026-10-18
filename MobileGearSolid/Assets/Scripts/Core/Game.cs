@@ -502,7 +502,7 @@ namespace MobileGearSolid
                 {
                     Rect frame = roomCamera.Frame(Player.Pos);
                     Vector3 center = new Vector3(frame.center.x, frame.center.y, -10f);
-                    Rect viewport = RoomCamera.Viewport(frame, Screen.width, Screen.height);
+                    Rect viewport = UI.CameraViewport(frame, Screen.width, Screen.height, Screen.safeArea);
                     roomTransitionTime += Time.unscaledDeltaTime;
                     if (roomTransitionTime < RoomMoveTime)
                     {
@@ -553,7 +553,7 @@ namespace MobileGearSolid
                 Rect frame = roomCamera.Frame(Player.Pos);
                 cam.transform.position = new Vector3(frame.center.x, frame.center.y, -10f);
                 cam.orthographicSize = frame.height * 0.5f;
-                cam.rect = RoomCamera.Viewport(frame, Screen.width, Screen.height);
+                cam.rect = UI.CameraViewport(frame, Screen.width, Screen.height, Screen.safeArea);
                 roomTransitionTime = RoomMoveTime;
                 UI.SetCameraFrame(cam.rect, roomCamera.AreaId);
             }

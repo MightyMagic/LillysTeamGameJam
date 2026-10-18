@@ -24,6 +24,8 @@ namespace MobileGearSolid
         RectTransform objectivePanel, statusPanel, heartsRow, counters, pauseButton;
         readonly Image[] frameBars = new Image[4];
         Text roomLabel;
+        readonly List<Rect> viewportExclusions = new List<Rect>(8);
+        readonly Vector3[] captionCorners = new Vector3[4];
 
         // dialogue widgets
         TutorialRadioUI tutorialRadio;
@@ -109,6 +111,7 @@ namespace MobileGearSolid
             win.rectTransform.At(new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, size);
             var col = UIKit.Column(win.transform, "Content", 14f);
             col.Fill(40f);
+            PopupWindowFit.Attach(col, win.rectTransform);
             return col;
         }
 
@@ -124,7 +127,6 @@ namespace MobileGearSolid
                     .At(new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -i * 20), new Vector2(1920, 3));
 
             var title = UIKit.Label(menu, Loc.T("menu.title"), 104, UIKit.Green, TextAnchor.MiddleCenter);
-            title.fontStyle = FontStyle.Bold;
             title.rectTransform.At(new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -50), new Vector2(1800, 130));
             UIKit.Label(menu, Loc.T("menu.tagline"), 32, UIKit.Dim, TextAnchor.MiddleCenter)
                 .rectTransform.At(new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0, -175), new Vector2(1800, 50));
@@ -184,7 +186,7 @@ namespace MobileGearSolid
             UIKit.Label(c, Loc.T("brief.legend"), 24, UIKit.Dim).Size(70);
 
             var row = UIKit.Row(c, "Buttons", 30f);
-            row.Size(100);
+            row.Size(PopupWindowFit.ButtonHeight);
             UIKit.Btn(row, Loc.T("button.back"), game.ShowMenu, 36);
             UIKit.Btn(row, Loc.T("button.start"), game.BeginPlay, 40);
         }
@@ -225,7 +227,6 @@ namespace MobileGearSolid
             missionText = UIKit.Label(objBg.transform, "", 26, UIKit.Amber, TextAnchor.UpperLeft);
             missionText.rectTransform.At(new Vector2(0, 1), new Vector2(0, 1), new Vector2(20, -12), new Vector2(720, 34));
             objectiveText = UIKit.Label(objBg.transform, "", 38, Color.white, TextAnchor.UpperLeft);
-            objectiveText.fontStyle = FontStyle.Bold;
             objectiveText.rectTransform.At(new Vector2(0, 1), new Vector2(0, 1), new Vector2(20, -48), new Vector2(720, 96));
             sideText = UIKit.Label(objBg.transform, "", 30, UIKit.Dim, TextAnchor.LowerLeft);
             sideText.lineSpacing = 1.05f;
@@ -269,7 +270,6 @@ namespace MobileGearSolid
             timerText = UIKit.Label(hud, "", 30, UIKit.Dim, TextAnchor.MiddleCenter);
             timerText.rectTransform.At(new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -16), new Vector2(300, 40));
             alertText = UIKit.Label(hud, "", 52, UIKit.Red, TextAnchor.MiddleCenter);
-            alertText.fontStyle = FontStyle.Bold;
             alertText.rectTransform.At(new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -56), new Vector2(900, 70));
             bannerText = UIKit.Label(hud, "", 40, UIKit.Red, TextAnchor.MiddleCenter);
             bannerText.rectTransform.At(new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -140), new Vector2(1300, 60));
@@ -382,6 +382,24 @@ namespace MobileGearSolid
             if (areaId != null) roomLabel.text = Loc.T("room." + areaId);
         }
 
+        /// Fit the viewport around unchanged control homes and any visible contextual captions.
+        public Rect CameraViewport(Rect frame, int width, int height, Rect safePixels)
+        {
+            viewportExclusions.Clear();
+            GameViewport.AddControlHomes(viewportExclusions, width, height);
+            foreach (var button in new[] { shootBtn, interactBtn, decoyBtn })
+            {
+                var label = button.caption;
+                if (!label.gameObject.activeInHierarchy || string.IsNullOrEmpty(label.text)) continue;
+                label.rectTransform.GetWorldCorners(captionCorners);
+                var center = (captionCorners[0] + captionCorners[2]) * .5f;
+                var size = new Vector2(Mathf.Min(label.rectTransform.rect.width, label.preferredWidth) * label.transform.lossyScale.x,
+                    Mathf.Max(label.rectTransform.rect.height, label.preferredHeight) * label.transform.lossyScale.y);
+                viewportExclusions.Add(GameViewport.Normalize(new Rect((Vector2)center - size * .5f, size), width, height));
+            }
+            return GameViewport.Calculate(frame, width, height, safePixels, viewportExclusions);
+        }
+
         static void SetBar(Image bar, Vector2 min, Vector2 max, bool visible)
         {
             bar.gameObject.SetActive(visible);
@@ -394,7 +412,6 @@ namespace MobileGearSolid
         static Text Counter(RectTransform parent, string sprite, ref float x)
         {
             var value = UIKit.Label(parent, "0", 44, Color.white, TextAnchor.MiddleLeft);
-            value.fontStyle = FontStyle.Bold;
             value.rectTransform.At(new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(-x, 0), new Vector2(84, 64));
             var icon = UIKit.Img(parent, "Icon", Color.white, Art.S(sprite));
             icon.rectTransform.At(new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(-x - 88, 0), new Vector2(64, 64));
@@ -770,7 +787,6 @@ namespace MobileGearSolid
             shipBoss.preserveAspect = true;
 
             var title = UIKit.Label(ship, Loc.T("ship.title"), 72, UIKit.Green, TextAnchor.UpperLeft);
-            title.fontStyle = FontStyle.Bold;
             title.rectTransform.At(new Vector2(0, 1), new Vector2(0, 1), new Vector2(40, -24), new Vector2(900, 90));
             UIKit.Label(ship, Loc.T("ship.subtitle"), 28, UIKit.TextCol, TextAnchor.UpperLeft)
                 .rectTransform.At(new Vector2(0, 1), new Vector2(0, 1), new Vector2(44, -112), new Vector2(760, 80));
@@ -779,7 +795,6 @@ namespace MobileGearSolid
             var cr = UIKit.Img(ship, "Credits", new Color(0, 0, 0, 0.6f));
             cr.rectTransform.At(new Vector2(0, 1), new Vector2(0, 1), new Vector2(40, -200), new Vector2(420, 70));
             var crText = UIKit.Label(cr.transform, Loc.F("ship.credits", Progress.Credits), 40, UIKit.Amber, TextAnchor.MiddleCenter);
-            crText.fontStyle = FontStyle.Bold;
             crText.rectTransform.Fill();
 
             // upgrades panel on the right
@@ -808,10 +823,14 @@ namespace MobileGearSolid
             icon.preserveAspect = true;
 
             var name = UIKit.Label(row.transform, $"{Meta.Name(s)}  <color=#ffd060>{Meta.ValueText(s, lvl)}</color>", 32, Color.white, TextAnchor.UpperLeft);
-            name.fontStyle = FontStyle.Bold;
             name.rectTransform.At(new Vector2(0, 1), new Vector2(0, 1), new Vector2(116, -10), new Vector2(480, 44));
-            UIKit.Label(row.transform, Meta.Desc(s), 22, UIKit.Dim, TextAnchor.UpperLeft)
-                .rectTransform.At(new Vector2(0, 1), new Vector2(0, 1), new Vector2(116, -54), new Vector2(520, 66));
+            var description = UIKit.Label(row.transform, Meta.Desc(s), 22, UIKit.Dim, TextAnchor.UpperLeft);
+            description.rectTransform.At(new Vector2(0, 1), new Vector2(0, 1), new Vector2(116, -54), new Vector2(520, 66));
+            // Small screens can round the dynamic font size up; fit the existing text box.
+            description.verticalOverflow = VerticalWrapMode.Truncate;
+            description.resizeTextForBestFit = true;
+            description.resizeTextMinSize = 20;
+            description.resizeTextMaxSize = 22;
 
             // level pips
             for (int i = 0; i < max; i++)
@@ -852,7 +871,7 @@ namespace MobileGearSolid
             UIKit.Label(c, Loc.F("raid.loadout", Meta.MaxHp, Meta.Damage, Meta.Ammo, Meta.Traps), 30, UIKit.Amber).Size(90);
             UIKit.Label(c, Loc.T("raid.hint"), 26, UIKit.Dim).Size(150);
             var row = UIKit.Row(c, "Buttons", 30f);
-            row.Size(100);
+            row.Size(PopupWindowFit.ButtonHeight);
             UIKit.Btn(row, Loc.T("button.back"), game.ShowMenu, 36);
             UIKit.Btn(row, Loc.T("button.start"), game.BeginPlay, 40);
         }
@@ -863,7 +882,6 @@ namespace MobileGearSolid
             UIKit.Clear(cards);
             UIKit.Img(cards, "Dim", new Color(0, 0, 0, 0.75f)).rectTransform.Fill();
             var title = UIKit.Label(cards, Loc.T("cards.title"), 60, UIKit.Amber, TextAnchor.MiddleCenter);
-            title.fontStyle = FontStyle.Bold;
             title.rectTransform.At(new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -70), new Vector2(1600, 80));
             UIKit.Label(cards, Loc.T("cards.subtitle"), 30, UIKit.TextCol, TextAnchor.MiddleCenter)
                 .rectTransform.At(new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -150), new Vector2(1600, 50));
@@ -885,7 +903,6 @@ namespace MobileGearSolid
                 icon.raycastTarget = false;
                 int owned = Cards.Count(game.ActiveCards, def.id);
                 var name = UIKit.Label(card.transform, def.Name + (owned > 0 ? $" <color=#8fe39a>+{owned}</color>" : ""), 38, Color.white, TextAnchor.MiddleCenter);
-                name.fontStyle = FontStyle.Bold;
                 name.rectTransform.At(new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -270), new Vector2(w - 30, 60));
                 UIKit.Label(card.transform, def.Desc, 30, UIKit.TextCol, TextAnchor.UpperCenter)
                     .rectTransform.At(new Vector2(0.5f, 1), new Vector2(0.5f, 1), new Vector2(0, -340), new Vector2(w - 50, 170));
@@ -907,7 +924,7 @@ namespace MobileGearSolid
             CardStrip(c, run.cards, 64);
             UIKit.Label(c, Loc.T(run.roomIndex + 2 >= RunState.RoomCount ? "raid.next_final" : "raid.next"), 28, UIKit.Amber, TextAnchor.MiddleCenter).Size(50);
             var row = UIKit.Row(c, "Buttons", 24f);
-            row.Size(100);
+            row.Size(PopupWindowFit.ButtonHeight);
             UIKit.Btn(row, Loc.T("raid.retreat"), game.RetreatRaid, 30);
             UIKit.Btn(row, Loc.T("raid.continue"), game.ContinueRaid, 38);
         }
@@ -921,12 +938,11 @@ namespace MobileGearSolid
             UIKit.Label(c, Loc.T(run.won ? "raid.won" : run.retreated ? "raid.retreated" : "raid.lost"), 58, run.won ? UIKit.Green : run.retreated ? UIKit.Amber : UIKit.Red, TextAnchor.MiddleCenter).Size(84);
             UIKit.Label(c, Loc.F("raid.result_stats", cleared, RunState.RoomCount, Progress.BestRaid, run.kills, run.alerts, UIKit.Time(run.time)), 32, UIKit.TextCol, TextAnchor.MiddleCenter).Size(150);
             var cr = UIKit.Label(c, Loc.F("raid.result_credits", run.credits, Progress.Credits), 40, UIKit.Amber, TextAnchor.MiddleCenter);
-            cr.fontStyle = FontStyle.Bold;
             cr.Size(70);
             CardStrip(c, run.cards, 72);
             UIKit.Label(c, Loc.T("raid.result_hint"), 26, UIKit.Dim, TextAnchor.MiddleCenter).Size(70);
             var row = UIKit.Row(c, "Buttons", 24f);
-            row.Size(100);
+            row.Size(PopupWindowFit.ButtonHeight);
             UIKit.Btn(row, Loc.T("button.menu"), game.ShowMenu, 32);
             UIKit.Btn(row, Loc.T("menu.ship"), game.ShowShip, 32);
             UIKit.Btn(row, Loc.T("raid.again"), game.StartRaid, 32);
@@ -966,9 +982,9 @@ namespace MobileGearSolid
             Show(pause);
             var c = Window(pause, new Vector2(900, 640), true);
             UIKit.Label(c, Loc.T("pause.title"), 60, UIKit.Green, TextAnchor.MiddleCenter).Size(90);
-            UIKit.Btn(c, Loc.T("button.resume"), game.Resume, 38).Size(100);
-            UIKit.Btn(c, Loc.T("button.restart"), game.Restart, 38).Size(100);
-            UIKit.Btn(c, Loc.T("button.quit"), game.ShowMenu, 38).Size(100);
+            UIKit.Btn(c, Loc.T("button.resume"), game.Resume, 38).Size(PopupWindowFit.ButtonHeight);
+            UIKit.Btn(c, Loc.T("button.restart"), game.Restart, 38).Size(PopupWindowFit.ButtonHeight);
+            UIKit.Btn(c, Loc.T("button.quit"), game.ShowMenu, 38).Size(PopupWindowFit.ButtonHeight);
             UIKit.Label(c, Loc.T("hint.controls"), 22, UIKit.Dim, TextAnchor.MiddleCenter).Size(80);
         }
 
@@ -984,7 +1000,7 @@ namespace MobileGearSolid
                 UIKit.Label(t, Loc.T("result.tutorial_done"), 56, UIKit.Green, TextAnchor.MiddleCenter).Size(90);
                 UIKit.Label(t, Loc.T("result.tutorial_text"), 30, UIKit.TextCol, TextAnchor.MiddleCenter).Size(170);
                 var tr = UIKit.Row(t, "Buttons", 24f);
-                tr.Size(100);
+                tr.Size(PopupWindowFit.ButtonHeight);
                 UIKit.Btn(tr, Loc.T("button.menu"), game.ShowMenu, 34);
                 if (game.HasNextMission) UIKit.Btn(tr, Loc.T("button.next"), game.NextMission, 34);
                 return;
@@ -1003,10 +1019,10 @@ namespace MobileGearSolid
                 bool ok = m.SideDone(s);
                 sb.Append($"<color={(ok ? "#8fe39a" : "#e36a5a")}>{(ok ? "■ " + Loc.T("result.done") : "□ " + Loc.T("result.not_done"))}</color> — {s.Label}\n");
             }
-            UIKit.Label(c, sb.ToString(), 30, UIKit.TextCol, TextAnchor.UpperCenter).Size(470);
+            UIKit.Label(c, sb.ToString(), 30, UIKit.TextCol, TextAnchor.UpperCenter).Size(240);
 
             var row = UIKit.Row(c, "Buttons", 24f);
-            row.Size(100);
+            row.Size(PopupWindowFit.ButtonHeight);
             UIKit.Btn(row, Loc.T("button.menu"), game.ShowMenu, 34);
             UIKit.Btn(row, Loc.T("button.retry"), game.Restart, 34);
             if (game.HasNextMission) UIKit.Btn(row, Loc.T("button.next"), game.NextMission, 34);
@@ -1021,7 +1037,7 @@ namespace MobileGearSolid
             string why = m.lastAlertReason != null ? Loc.F("result.why", m.lastAlertReason.ToLowerInvariant()) + "\n" : "";
             UIKit.Label(c, Loc.T("result.fail_text") + "\n" + why + Loc.T("result.fail_hint"), 30, UIKit.TextCol, TextAnchor.MiddleCenter).Size(200);
             var row = UIKit.Row(c, "Buttons", 24f);
-            row.Size(100);
+            row.Size(PopupWindowFit.ButtonHeight);
             UIKit.Btn(row, Loc.T("button.menu"), game.ShowMenu, 36);
             UIKit.Btn(row, Loc.T("button.retry"), game.Restart, 36);
         }
