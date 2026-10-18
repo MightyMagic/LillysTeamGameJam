@@ -38,6 +38,9 @@ namespace MobileGearSolid.EditorTools
                         Check(d.cameraAreas.Exists(a => a.bounds.Contains(p)), id + " cell covered " + cell);
                     rc.Select(p);
                     Check(rc.Active && rc.Frame(p).Contains(p), id + " player stays in frame " + cell);
+                    var wide = rc.ViewFrame(p, 1920, 1080);
+                    Check(wide.Contains(p) && wide.xMin < p.x - 1f && wide.xMax > p.x + 1f && wide.yMin < p.y - 1f && wide.yMax > p.y + 1f,
+                        id + " player inside the wide view with margin " + cell);
                     foreach (var dir in new[] { Vector2Int.right, Vector2Int.up })
                     {
                         if (!cells.Contains(cell + dir)) continue;
@@ -72,11 +75,14 @@ namespace MobileGearSolid.EditorTools
                     Check(area.id != null && !Loc.T("room." + area.id).StartsWith("#"), id + " room label " + area.id);
                     foreach (var size in new[] { new Vector2Int(1920,1080), new Vector2Int(2400,1080), new Vector2Int(2560,1600), new Vector2Int(2048,1536) })
                     {
+                        // wide camera: fills the screen (no black bars) and never shows less than the authored room frame
+                        var rcArea = new RoomCamera(new System.Collections.Generic.List<CameraArea> { area });
+                        rcArea.Select(area.bounds.center);
                         var f = area.Frame(area.bounds.center);
-                        var v = RoomCamera.Viewport(f, size.x, size.y);
-                        Check(v.xMin >= 0 && v.xMax <= 1 && v.yMin >= .189f && v.yMax <= .861f, id + " frame in safe strip " + size);
-                        float visibleWidth = f.height * size.x * v.width / (size.y * v.height);
-                        Check(Mathf.Abs(visibleWidth - f.width) < .01f, id + " aspect preserved " + size);
+                        var vf = rcArea.ViewFrame(area.bounds.center, size.x, size.y);
+                        float aspect = size.x * RoomCamera.Strip.width / (size.y * RoomCamera.Strip.height);
+                        Check(Mathf.Abs(vf.width / vf.height - aspect) < .01f, id + " view fills the screen " + size);
+                        Check(vf.width >= f.width - .01f && vf.height >= f.height - .01f, id + " view covers the room frame " + size);
                     }
                 }
             }

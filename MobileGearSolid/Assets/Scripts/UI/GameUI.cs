@@ -566,7 +566,7 @@ namespace MobileGearSolid
             RectTransformUtility.ScreenPointToLocalPointInRectangle(hud, sp, null, out var local);
             var r = hud.rect;
             var inner = new Rect(r.xMin + PointerLeft, r.yMin + PointerBottom, r.width - PointerLeft - PointerRight, r.height - PointerTop - PointerBottom);
-            if (compactHUD && game.RoomCameraActive)
+            if (compactHUD && game.RoomCameraActive && cam.rect != new Rect(0, 0, 1, 1))
             {
                 Rect v = cam.rect;
                 inner = new Rect(r.xMin + v.x * r.width + 24, r.yMin + v.y * r.height + 30,

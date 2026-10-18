@@ -93,6 +93,49 @@ namespace MobileGearSolid
 
         public Rect Frame(Vector2 player) => current.Frame(player);
 
+        // ------------------------------------------------------------------ wide view with peeking
+
+        /// The game view fills the whole screen; the HUD is drawn on top of it.
+        public static readonly Rect Strip = new Rect(0f, 0f, 1f, 1f);
+        /// General zoom-out over the authored room frame, so more of the surroundings is visible.
+        public const float BaseZoomOut = 1.3f;
+        /// Closer than this (tiles) to a neighbouring area, the camera starts leaning into it.
+        public const float PeekDistance = 3.5f;
+        const float PeekShift = 3f, PeekZoom = 0.15f;
+
+        /// What the camera actually shows: the room frame zoomed out, leaning toward neighbouring
+        /// rooms when the player walks up to them, and widened to the screen's aspect (no black bars).
+        public Rect ViewFrame(Vector2 player, int screenWidth, int screenHeight)
+        {
+            Rect f = current.Frame(player);
+            Vector2 shift = Vector2.zero;
+            float grow = 0f;
+            foreach (var a in areas)
+            {
+                if (a == current || !Touching(current.bounds, a.bounds)) continue;
+                var closest = new Vector2(Mathf.Clamp(player.x, a.bounds.xMin, a.bounds.xMax), Mathf.Clamp(player.y, a.bounds.yMin, a.bounds.yMax));
+                Vector2 d = closest - player;
+                float dist = d.magnitude;
+                if (dist > PeekDistance) continue;
+                float w = Mathf.SmoothStep(0f, 1f, 1f - dist / PeekDistance);
+                Vector2 dir = dist > 0.01f ? d / dist : (a.bounds.center - player).normalized;
+                shift += dir * w * PeekShift;
+                grow = Mathf.Max(grow, w);
+            }
+            shift = Vector2.ClampMagnitude(shift, PeekShift);
+            Vector2 size = f.size * BaseZoomOut * (1f + PeekZoom * grow);
+            float aspect = screenWidth * Strip.width / Mathf.Max(1f, screenHeight * Strip.height);
+            if (size.x / size.y < aspect) size.x = size.y * aspect;
+            else size.y = size.x / aspect;
+            return new Rect(f.center + shift - size * 0.5f, size);
+        }
+
+        static bool Touching(Rect a, Rect b)
+        {
+            a.xMin -= 1.2f; a.yMin -= 1.2f; a.xMax += 1.2f; a.yMax += 1.2f;
+            return a.Overlaps(b);
+        }
+
         // Letterbox only as needed, keeping the entire room between HUD and touch controls.
         public static Rect Viewport(Rect frame, int screenWidth, int screenHeight)
         {
