@@ -12,7 +12,7 @@ namespace MobileGearSolid.EditorTools
     ///   Unity -batchmode -projectPath . -executeMethod MobileGearSolid.EditorTools.SmokeTest.Run
     public static class SmokeTest
     {
-        static int step;
+        static int step, sub;
         static double stepStart;
         static readonly List<string> errors = new List<string>();
         static string outDir;
@@ -60,6 +60,7 @@ namespace MobileGearSolid.EditorTools
         static void Next()
         {
             step++;
+            sub = 0;
             stepStart = EditorApplication.timeSinceStartup;
             GameInput.Joystick = Vector2.zero;
         }
@@ -163,7 +164,17 @@ namespace MobileGearSolid.EditorTools
                     if (MoveTo(new Vector2(WP('4').x, 1.5f), 0.4f)) Next();
                     break;
                 case 14: if (MoveTo(new Vector2(58.5f, 1.5f), 0.4f)) { Shot("t6_loop"); Next(); } break;
-                case 15: if (g.phase == Game.Phase.Result || MoveTo(WP('7'), 0.6f)) Next(); break;
+                case 15:
+                    // vent lesson: walk to the hatch, crawl through, walk to the exit marker
+                    if (sub == 0) { if (MoveTo(WP('Q'), 0.6f)) sub = 1; }
+                    else if (sub == 1)
+                    {
+                        if (p.Crawling) { Shot("t7_vent_crawl"); sub = 2; }
+                        else if (Mathf.Repeat((float)Elapsed, 0.5f) < 0.05f) GameInput.PressInteract();
+                    }
+                    else if (sub == 2) { if (!p.Crawling && g.Mission.ventsUsed > 0) { Shot("t8_vent_out"); sub = 3; } }
+                    else if (g.phase == Game.Phase.Result || MoveTo(WP('9'), 0.6f)) { sub = 0; Next(); }
+                    break;
                 case 16:
                     if (g.phase == Game.Phase.Result) { Shot("t7_tutorial_done"); Debug.Log("[SmokeTest] tutorial completed"); Next(); }
                     else if (Elapsed > 5) Fail("tutorial did not finish");
@@ -174,8 +185,23 @@ namespace MobileGearSolid.EditorTools
                 case 19: if (Elapsed > 1.5) { Shot("m1_start_pointer"); p.hp = 2; p.Hurt(1); Next(); } break;
                 case 20: if (Elapsed > 0.12) { Shot("m1_hurt_flash"); Next(); } break;
                 case 21: if (Elapsed > 2.0) { Shot("m1_low_hp_pulse"); g.StartMission(2); g.BeginPlay(); Next(); } break;
-                case 22: if (Elapsed > 1.5) { Shot("m2_start"); g.Level.CutPower(); Next(); } break;
-                case 23: if (Elapsed > 1.5) { Shot("m2_power_off"); g.StartMission(3); g.BeginPlay(); Next(); } break;
+                case 22:
+                    if (Elapsed > 1.5)
+                    {
+                        Shot("m2_start");
+                        g.UI.Minimap.Expand();
+                        // wound a guard next to the player to see the HP bar
+                        var gd = g.Guards[0];
+                        p.Teleport(gd.Pos + Vector2.left * 1.5f);
+                        gd.TakeHit(1);
+                        Next();
+                    }
+                    break;
+                case 23:
+                    if (Elapsed > 0.4 && sub == 0) { Shot("m2_minimap_big"); g.UI.Minimap.Collapse(); sub = 1; }
+                    else if (Elapsed > 0.7 && sub == 1) { Shot("m2_guard_hpbar"); g.Level.CutPower(); sub = 2; }
+                    else if (Elapsed > 2.2 && sub == 2) { Shot("m2_power_off"); sub = 0; g.StartMission(3); g.BeginPlay(); Next(); }
+                    break;
                 case 24: if (Elapsed > 1.5) { Shot("m3_start"); g.RaiseAlert("test", p.Pos); Next(); } break;
                 case 25: if (Elapsed > 8) { Shot("m3_alert_search"); LogGuards(); Next(); } break;
                 // --- night raid: chest -> card -> next room -> death -> results; ship + menu screens

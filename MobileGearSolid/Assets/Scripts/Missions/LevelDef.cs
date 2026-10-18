@@ -49,6 +49,8 @@ namespace MobileGearSolid
         public List<GuardDef> guards = new List<GuardDef>();
         public List<string> script = new List<string>();
         public List<CameraArea> cameraAreas = new List<CameraArea>();
+        /// Vent shafts: pairs of map markers connected by a crawlway ([vents] section, "A B" per line).
+        public List<(char a, char b)> vents = new List<(char, char)>();
         public ObjectiveKind[] objectives = { ObjectiveKind.Extract };
         public SideTask[] sides = new SideTask[0];
         public bool tutorial;
@@ -134,6 +136,13 @@ namespace MobileGearSolid
                     case "mission": ParseSetting(def, line); break;
                     case "guards": def.guards.Add(ParseGuard(line)); break;
                     case "script": def.script.Add(line); break;
+                    case "vents":
+                    {
+                        var w = line.Split(new[] { ' ', '\t' }, System.StringSplitOptions.RemoveEmptyEntries);
+                        if (w.Length >= 2 && w[0].Length == 1 && w[1].Length == 1) def.vents.Add((w[0][0], w[1][0]));
+                        else Debug.LogWarning("[MGS] Invalid vent line (expected two markers): " + line);
+                        break;
+                    }
                     case "camera":
                         var area = CameraArea.Parse(line);
                         if (area != null) def.cameraAreas.Add(area);

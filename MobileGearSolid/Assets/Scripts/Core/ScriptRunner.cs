@@ -10,7 +10,7 @@ namespace MobileGearSolid
     ///   toast &lt;textKey&gt;              short message above the controls
     ///   highlight shoot|interact|trap|none   blinks an on-screen button
     ///   checkpoint &lt;marker&gt;          where the player respawns if caught (tutorial)
-    ///   wait kill [n] | wait reach &lt;marker&gt; [radius] | wait hide | wait trap | wait time &lt;sec&gt;
+    ///   wait kill [n] | wait reach &lt;marker&gt; [radius] | wait hide | wait trap | wait vent | wait time &lt;sec&gt;
     ///   end                          finish the level successfully
     public class ScriptRunner : MonoBehaviour
     {
@@ -18,7 +18,7 @@ namespace MobileGearSolid
         int index;
         string[] waiting;     // current blocking "wait" command, split into words
         float waitTimer;
-        int trapsAtWait;
+        int trapsAtWait, ventsAtWait;
         bool inDialog;
         public Vector2 Checkpoint { get; private set; }
 
@@ -38,6 +38,14 @@ namespace MobileGearSolid
                     float bd = float.MaxValue;
                     foreach (var it in g.Interactables)
                         if (it is HideBox b && b.Available && Vector2.Distance(b.Pos, g.Player.Pos) < bd) { bd = Vector2.Distance(b.Pos, g.Player.Pos); best = b.Pos; }
+                    return best;
+                }
+                if (kind == "vent")
+                {
+                    Vector2? best = null;
+                    float bd = float.MaxValue;
+                    foreach (var it in g.Interactables)
+                        if (it is Vent v && Vector2.Distance(v.Pos, g.Player.Pos) < bd) { bd = Vector2.Distance(v.Pos, g.Player.Pos); best = v.Pos; }
                     return best;
                 }
                 if (kind == "kill")
@@ -102,6 +110,7 @@ namespace MobileGearSolid
                     waiting = w;
                     waitTimer = 0f;
                     trapsAtWait = g.Mission.trapsUsed;
+                    ventsAtWait = g.Mission.ventsUsed;
                     break;
                 case "end":
                     g.CompleteMission();
@@ -131,6 +140,8 @@ namespace MobileGearSolid
                     return p.InBox;
                 case "trap":
                     return g.Mission.trapsUsed > trapsAtWait;
+                case "vent":
+                    return g.Mission.ventsUsed > ventsAtWait;
                 case "time":
                     waitTimer += Time.deltaTime;
                     return waitTimer >= (w.Length > 2 ? Float(w[2]) : 1f);

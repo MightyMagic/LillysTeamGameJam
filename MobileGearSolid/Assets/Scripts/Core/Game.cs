@@ -125,6 +125,7 @@ namespace MobileGearSolid
             cam.orthographicSize = 6.5f;
             UI.SetCameraFrame(cam.rect, null);
             UI.ConfigureCompactHUD(false);
+            UI.ClearMinimap();
             if (levelRoot != null) Destroy(levelRoot.gameObject);
             levelRoot = null;
             Level = null;
@@ -218,12 +219,20 @@ namespace MobileGearSolid
                 if (pts.Count > 0) Guards.Add(Guard.Spawn(Level, pts, gd));
             }
 
+            foreach (var (a, b) in Def.vents)
+            {
+                if (Level.waypoints.TryGetValue(a, out var pa) && Level.waypoints.TryGetValue(b, out var pb))
+                    Vent.Link(levelRoot, pa, pb);
+                else Debug.LogWarning($"[MGS] {Def.id}: vent markers '{a}'/'{b}' not found on the map");
+            }
+
             Player = Player.Spawn(Level, Level.playerStart, 1, 0, 0);
             ApplyStats(true);
             // Campaign, tutorial, raid rooms and editor maps share the same framing and HUD.
             roomCamera = RoomCamera.ForLevel(Def);
             roomCamera.Select(Player.Pos);
             UI.ConfigureCompactHUD(true);
+            UI.BuildMinimap(Level);
             SnapCamera();
 
             if (Def.script.Count > 0)
@@ -560,7 +569,7 @@ namespace MobileGearSolid
             float intensity = 0.5f;
             if (Level != null)
             {
-                intensity = Level.PowerOn ? 0.17f : 0.09f;
+                intensity = Level.PowerOn ? 0.17f : 0.045f;
                 if (!Level.PowerOn) baseColor = new Color(0.55f, 0.45f, 0.5f);
             }
             if (Mission != null && Mission.alertActive && phase == Phase.Playing)

@@ -233,22 +233,30 @@ namespace MobileGearSolid.EditorTools
             foreach (var route in GuardRoutes())
                 foreach (var c in route)
                     if (!marks.Contains(c)) problems.Add($"Маршрут охраны: точки '{c}' нет на карте");
+            foreach (var pair in VentPairs())
+                foreach (var c in pair)
+                    if (!marks.Contains(c)) problems.Add($"Вентиляция: метки '{c}' нет на карте");
         }
 
-        List<string> GuardRoutes()
+        List<string> GuardRoutes() => SectionLines("[guards]");
+
+        /// [vents] lines, each "AB" (two marker chars).
+        List<string> VentPairs() => SectionLines("[vents]").Where(p => p.Length == 2).ToList();
+
+        List<string> SectionLines(string section)
         {
-            var routes = new List<string>();
-            bool inGuards = false;
+            var result = new List<string>();
+            bool inside = false;
             foreach (var raw in footer.Split('\n'))
             {
                 string l = raw.Trim();
-                if (l.StartsWith("[")) { inGuards = l.ToLowerInvariant() == "[guards]"; continue; }
+                if (l.StartsWith("[")) { inside = l.ToLowerInvariant() == section; continue; }
                 int hash = l.IndexOf('#');
                 if (hash >= 0) l = l.Substring(0, hash).Trim();
-                if (!inGuards || l.Length == 0) continue;
-                routes.Add(string.Concat(l.Split(' ', '\t').Where(t => t.Length > 0 && !t.Contains("="))));
+                if (!inside || l.Length == 0) continue;
+                result.Add(string.Concat(l.Split(' ', '\t').Where(t => t.Length > 0 && !t.Contains("="))));
             }
-            return routes;
+            return result;
         }
 
         // ------------------------------------------------------------------ gui
@@ -378,6 +386,15 @@ namespace MobileGearSolid.EditorTools
                 if (pts.Count > 1) pts.Add(pts[0]);
                 for (int k = 0; k + 1 < pts.Count; k++) Handles.DrawAAPolyLine(3f, pts[k], pts[k + 1]);
                 if (pts.Count > 0) Handles.DrawSolidDisc(pts[0], Vector3.forward, cell * 0.25f);
+            }
+            // vents: dotted cyan line between the two hatches
+            Handles.color = new Color(0.4f, 0.95f, 1f);
+            foreach (var pair in VentPairs())
+            {
+                if (!pos.ContainsKey(pair[0]) || !pos.ContainsKey(pair[1])) continue;
+                Handles.DrawDottedLine(pos[pair[0]], pos[pair[1]], 4f);
+                Handles.DrawWireDisc(pos[pair[0]], Vector3.forward, cell * 0.4f);
+                Handles.DrawWireDisc(pos[pair[1]], Vector3.forward, cell * 0.4f);
             }
         }
 

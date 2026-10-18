@@ -19,7 +19,9 @@ namespace MobileGearSolid
         public GuardState state;
         public bool bodyFound;
         public float suspicion;
-        public int hp;
+        public int hp, maxHp;
+        SpriteRenderer[] hpPips;
+        Transform hpBar;
         /// After a non-lethal hit the guard staggers; if not finished off in time he raises the alarm.
         public const float WoundStun = 1.3f;
         float stunTimer;
@@ -80,6 +82,7 @@ namespace MobileGearSolid
             g.anim = new CharAnim("guard");
             g.icon = Art.MakeSprite(go.transform, "StateIcon", "fx_suspect", new Vector3(0, 1.6f), Art.OrderIcons);
             g.icon.enabled = false;
+            g.BuildHpBar();
             g.cone = VisionCone.Create(level.transform, "GuardCone");
 
             g.flashlight = Level.MakeLight(go.transform, g.Center, new Color(1f, 0.93f, 0.7f), 0.9f, ViewDist);
@@ -219,7 +222,7 @@ namespace MobileGearSolid
                     float d = Vector2.Distance(Center, p.Center);
                     float rate = Mathf.Lerp(3.2f, 0.9f, d / range);
                     if (state == GuardState.Search || state == GuardState.Suspicious) rate *= 1.4f;
-                    if (p.BoxMoving) rate *= 0.5f; // "was that box... moving?"
+                    if (p.BoxMoving) rate *= p.boxMaster ? 0.25f : 0.5f; // "was that box... moving?" (Box Master card: harder to notice)
                     rate *= p.stealthMul;
                     suspicion += rate * dt;
                     if (suspicion >= 1f)
@@ -497,6 +500,7 @@ namespace MobileGearSolid
             sr.flipX = Facing.x < 0;
             sr.sortingOrder = Art.OrderBodies;
             icon.enabled = false;
+            hpBar.gameObject.SetActive(false);
             cone.Hide();
             flashlight.enabled = false;
             tracer.enabled = false;
@@ -506,6 +510,44 @@ namespace MobileGearSolid
         }
 
         // ------------------------------------------------------------------ visuals
+
+        // ------------------------------------------------------------------ health bar
+
+        const float BarWidth = 0.62f, BarHeight = 0.09f, PipGap = 0.04f;
+
+        /// Small segmented bar over the head (one segment per hit point).
+        void BuildHpBar()
+        {
+            maxHp = Mathf.Max(1, hp);
+            hpBar = new GameObject("HpBar").transform;
+            hpBar.SetParent(transform, false);
+            hpBar.localPosition = new Vector3(0, 1.22f);
+            var bg = Art.MakeSprite(hpBar, "Bg", "fx_white", Vector3.zero, Art.OrderIcons - 2);
+            bg.color = new Color(0, 0, 0, 0.75f);
+            bg.transform.localScale = new Vector3((BarWidth + 0.06f) / 0.125f, (BarHeight + 0.06f) / 0.125f, 1f);
+            hpPips = new SpriteRenderer[maxHp];
+            float w = (BarWidth - PipGap * (maxHp - 1)) / maxHp;
+            for (int i = 0; i < maxHp; i++)
+            {
+                var pip = Art.MakeSprite(hpBar, "Pip", "fx_white", Vector3.zero, Art.OrderIcons - 1);
+                pip.transform.localPosition = new Vector3(-BarWidth / 2 + w / 2 + i * (w + PipGap), 0);
+                pip.transform.localScale = new Vector3(w / 0.125f, BarHeight / 0.125f, 1f);
+                hpPips[i] = pip;
+            }
+            hpBar.gameObject.SetActive(false);
+        }
+
+        /// Shown when the guard is hurt or the player is aiming at him.
+        void UpdateHpBar()
+        {
+            var p = Game.I.Player;
+            bool show = !Dead && (hp < maxHp || (p != null && p.Target == this));
+            hpBar.gameObject.SetActive(show);
+            if (!show) return;
+            Color full = maxHp > Meta.GuardHp ? new Color(0.45f, 0.75f, 1f) : new Color(1f, 0.25f, 0.2f);
+            for (int i = 0; i < hpPips.Length; i++)
+                hpPips[i].color = i < hp ? full : new Color(0.25f, 0.25f, 0.28f, 0.9f);
+        }
 
         void UpdateVisuals(float dt)
         {
@@ -543,6 +585,8 @@ namespace MobileGearSolid
                 icon.transform.localScale = new Vector3(s, s, 1f);
                 icon.color = state == GuardState.Patrol ? new Color(1, 1, 1, 0.4f + suspicion) : Color.white;
             }
+
+            UpdateHpBar();
 
             if (tracer.enabled)
             {

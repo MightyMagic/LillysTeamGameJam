@@ -8,7 +8,8 @@ namespace MobileGearSolid
     public class RunState
     {
         public const int RoomCount = 5;
-        static readonly int[] TierPlan = { 1, 1, 2, 2, 3 };
+        // starts at tier 2: the easiest rooms were not fun as an opening (tier-1 rooms stay for future modes)
+        static readonly int[] TierPlan = { 2, 2, 3, 3, 3 };
         /// Strong builds get tougher rooms: from this many cards on, the next room is one tier higher.
         const int StrongBuildCards = 4;
 
@@ -51,7 +52,17 @@ namespace MobileGearSolid
 
             var pool = Pool();
             var candidates = pool.FindAll(r => r.tier == tier && !visited.Contains(r.id));
-            if (candidates.Count == 0) candidates = pool.FindAll(r => !visited.Contains(r.id));
+            if (candidates.Count == 0)
+            {
+                // out of rooms of that tier: take the closest tier, preferring the harder one
+                var rest = pool.FindAll(r => !visited.Contains(r.id));
+                rest.Sort((x, y) =>
+                {
+                    int dx = Mathf.Abs(x.tier - tier), dy = Mathf.Abs(y.tier - tier);
+                    return dx != dy ? dx.CompareTo(dy) : y.tier.CompareTo(x.tier);
+                });
+                if (rest.Count > 0) candidates = rest.FindAll(r => r.tier == rest[0].tier);
+            }
             if (candidates.Count == 0) candidates = pool;
             if (candidates.Count == 0) return null;
 

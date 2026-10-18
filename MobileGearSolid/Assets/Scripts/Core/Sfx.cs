@@ -58,6 +58,14 @@ namespace MobileGearSolid
             Add("beep", 0.1f, t => Sq(1200, t) * 0.3f * Fade(t, 0, 0.1f));
             Add("kill", 0.18f, t => (Noise() * 0.3f + Mathf.Sin(2 * Mathf.PI * 90 * t) * 0.5f) * Fade(t, 0, 0.18f));
             Add("empty", 0.06f, t => Sq(300, t) * 0.25f);
+            // crawling in a metal duct: two dull knocks with a hollow metallic ring
+            Add("vent", 0.42f, t =>
+            {
+                float k1 = Mathf.Exp(-t * 30f), t2 = t - 0.2f, k2 = t2 < 0 ? 0f : Mathf.Exp(-t2 * 30f) * 0.8f;
+                float ring = Mathf.Sin(2 * Mathf.PI * 610f * t) * 0.4f + Mathf.Sin(2 * Mathf.PI * 1270f * t) * 0.2f;
+                float thud = Mathf.Sin(2 * Mathf.PI * 95f * t);
+                return (ring + thud * 0.6f + Noise() * 0.15f) * (k1 + k2) * 0.45f;
+            });
             Add("blip", 0.025f, t => Sq(940, t) * 0.08f);
             // low-health heartbeat: "lub-dub"
             Add("heart", 0.42f, t =>

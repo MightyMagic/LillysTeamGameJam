@@ -9,7 +9,7 @@ namespace MobileGearSolid
         public float time;
         public int alerts, kills, intel, intelTotal;
         public bool hasKeycard, hasPrototype, dataDownloaded, powerWasCut, extracted;
-        public int trapsUsed, hides;
+        public int trapsUsed, hides, ventsUsed;
         public string scriptObjective; // objective text set by a level script (tutorial)
 
         public bool alertActive;

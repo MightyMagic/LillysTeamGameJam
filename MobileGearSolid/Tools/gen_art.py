@@ -1140,6 +1140,25 @@ def ship_deck():
     img.save(os.path.join(OUT, "bg_deck.png"))
 
 
+def vent_grate():
+    """Floor-level ventilation hatch: riveted frame, dark shaft with slats (prop_vent)."""
+    c = C(T, T)
+    frame, frame_d, frame_l = (96, 104, 108), (58, 64, 68), (140, 148, 150)
+    c.rect(2, 6, 28, 24, frame)
+    c.rect(2, 6, 28, 2, frame_l)
+    c.rect(2, 28, 28, 2, frame_d)
+    c.rect(5, 9, 22, 18, (8, 10, 12))                 # dark shaft
+    for y in range(10, 26, 3):                         # slats
+        c.rect(5, y, 22, 1, (70, 78, 82))
+        c.rect(5, y + 1, 22, 1, (30, 34, 36))
+    for x, y in ((3, 7), (27, 7), (3, 27), (27, 27)):  # rivets
+        c.set(x, y, frame_l)
+    c.rect(12, 3, 8, 3, frame_d)                       # handle
+    c.rect(13, 3, 6, 1, frame_l)
+    c.outline()
+    c.save("prop_vent")
+
+
 # ---------------------------------------------------------------- run
 floor_tile("tile_floor_0", 1, 0)
 floor_tile("tile_floor_1", 2, 1)
@@ -1188,6 +1207,7 @@ small("item_trap", trap_item)
 character("guard", GUARD, False)
 ui_icons()
 hud_icons()
+vent_grate()
 chest()
 card_icons()
 ship_deck()
@@ -1196,7 +1216,7 @@ ship_deck()
 files = sorted(f for f in os.listdir(OUT) if f.endswith(".png"))
 sheet = Image.new("RGBA", (12 * 70, ((len(files) + 11) // 12) * 70), (30, 30, 34, 255))
 for i, f in enumerate(files):
-    im = Image.open(os.path.join(OUT, f))
+    im = Image.open(os.path.join(OUT, f)).convert("RGBA")
     s = max(1, min(64 // im.width, 64 // im.height))
     im = im.resize((im.width * s, im.height * s), Image.NEAREST)
     sheet.alpha_composite(im, ((i % 12) * 70 + 3, (i // 12) * 70 + 3))

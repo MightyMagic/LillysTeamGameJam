@@ -27,6 +27,7 @@ namespace MobileGearSolid
 
         readonly List<Light2D> lamps = new List<Light2D>();
         readonly List<Light2D> emergency = new List<Light2D>();
+        readonly List<SpriteRenderer> lampTubes = new List<SpriteRenderer>();
         readonly Dictionary<string, Tile> tiles = new Dictionary<string, Tile>();
 
         /// Map legend: character, editor colour, description (shown in Mobile Gear Solid > Level Editor).
@@ -301,16 +302,20 @@ namespace MobileGearSolid
             lamp.pointLightInnerRadius = 1.2f;
             lamp.falloffIntensity = 0.45f;
             lamps.Add(lamp);
-            var em = MakeLight(transform, Center(x, y), new Color(1f, 0.15f, 0.1f), 0.55f, 5f);
-            em.enabled = false;
-            emergency.Add(em);
+            // dim red emergency light at every other lamp only: a power cut must really darken the level
+            if (lamps.Count % 2 == 1)
+            {
+                var em = MakeLight(transform, Center(x, y), new Color(1f, 0.12f, 0.08f), 0.28f, 3.2f);
+                em.enabled = false;
+                emergency.Add(em);
+            }
 
             // fluorescent tube on the nearest wall face above the lamp
             for (int yy = y + 1; yy < H; yy++)
             {
                 if (!IsWallChar(At(x, yy))) continue;
                 if (IsFloor(x, yy - 1))
-                    Art.MakeSprite(transform, "LampTube", "prop_lamp", new Vector3(x + 0.5f, yy + 0.62f), Art.OrderWallDecor);
+                    lampTubes.Add(Art.MakeSprite(transform, "LampTube", "prop_lamp", new Vector3(x + 0.5f, yy + 0.62f), Art.OrderWallDecor));
                 break;
             }
         }
@@ -339,6 +344,7 @@ namespace MobileGearSolid
             PowerTimeLeft = PowerOffDuration;
             foreach (var l in lamps) l.enabled = false;
             foreach (var l in emergency) l.enabled = true;
+            foreach (var t in lampTubes) t.color = new Color(0.3f, 0.3f, 0.32f);
             Sfx.Play("power");
             Game.I.OnPowerChanged(false);
         }
@@ -349,6 +355,7 @@ namespace MobileGearSolid
             PowerOn = true;
             foreach (var l in lamps) l.enabled = true;
             foreach (var l in emergency) l.enabled = false;
+            foreach (var t in lampTubes) t.color = Color.white;
             Sfx.Play("door");
             Game.I.OnPowerChanged(true);
         }

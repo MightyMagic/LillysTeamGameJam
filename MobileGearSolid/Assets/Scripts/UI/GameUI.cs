@@ -78,6 +78,11 @@ namespace MobileGearSolid
         void Show(RectTransform screen)
         {
             if (screen != dialog) tutorialRadio.SetVisible(false);
+            if (minimap != null)
+            {
+                if (screen != hud) minimap.Collapse();
+                minimap.gameObject.SetActive(screen == hud && minimapBuilt);
+            }
             menu.gameObject.SetActive(screen == menu);
             ship.gameObject.SetActive(screen == ship);
             briefing.gameObject.SetActive(screen == briefing);
@@ -303,6 +308,25 @@ namespace MobileGearSolid
             shootBtn = TouchButton.Create(root, "ui_gun", Loc.T("key.shoot"), new Vector2(-170, 190), 210, GameInput.PressShoot);
             interactBtn = TouchButton.Create(root, "ui_hand", Loc.T("key.interact"), new Vector2(-420, 130), 190, GameInput.PressInteract);
             decoyBtn = TouchButton.Create(root, "ui_decoy", Loc.T("key.trap"), new Vector2(-150, 420), 140, GameInput.PressDecoy);
+            minimap = Minimap.Create(game, hud, root);
+        }
+
+        Minimap minimap;
+        public Minimap Minimap => minimap;
+        bool minimapBuilt;
+        // right under the objective panel
+        Vector2 MinimapPos => new Vector2(20, compactHUD ? -142 : -280);
+
+        public void BuildMinimap(Level level)
+        {
+            minimap.Build(level, MinimapPos);
+            minimapBuilt = true;
+        }
+
+        public void ClearMinimap()
+        {
+            minimapBuilt = false;
+            minimap.Clear();
         }
 
         /// Shared compact layout for every playable level.
@@ -335,6 +359,7 @@ namespace MobileGearSolid
             alertText.fontSize = enabled ? 30 : 52;
             alertText.rectTransform.anchoredPosition = new Vector2(0, -56);
             if (!enabled) roomLabel.gameObject.SetActive(false);
+            minimap.SetPosition(MinimapPos);
         }
 
         static void LayoutButton(TouchButton button, Vector2 pos, float size)

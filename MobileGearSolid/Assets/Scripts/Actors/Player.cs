@@ -25,12 +25,16 @@ namespace MobileGearSolid
 
         public bool InBox => box != null;
         /// A still box is invisible to guards; a moving one only looks suspicious.
-        public bool HiddenFromGuards => InBox && (stillTime > 0.2f || boxMaster);
-        public bool HiddenFromCameras => InBox;
-        public bool BoxMoving => InBox && !boxMaster && stillTime <= 0.2f;
+        public bool HiddenFromGuards => Crawling || (InBox && stillTime > 0.2f);
+        public bool HiddenFromCameras => Crawling || InBox;
+        /// Inside a ventilation shaft: invisible, untouchable, no input.
+        public bool Crawling { get; private set; }
+        Vector2 crawlFrom, crawlTo;
+        float crawlT, crawlTime, crawlSound;
+        public bool BoxMoving => InBox && stillTime <= 0.2f;
 
         /// Text for the action button (null = nothing to do).
-        public string ActionPrompt => InBox ? Loc.T("prompt.box_exit") : CurrentInteractable != null ? CurrentInteractable.Prompt : null;
+        public string ActionPrompt => Crawling ? null : InBox ? Loc.T("prompt.box_exit") : CurrentInteractable != null ? CurrentInteractable.Prompt : null;
 
         Rigidbody2D rb;
         SpriteRenderer sr, reticle;
@@ -87,6 +91,7 @@ namespace MobileGearSolid
                 rb.linearVelocity = Vector2.zero;
                 return;
             }
+            if (Crawling) { UpdateCrawl(dt); return; }
 
             Vector2 move = GameInput.Move;
             if (move.magnitude < 0.15f) move = Vector2.zero;
@@ -243,8 +248,58 @@ namespace MobileGearSolid
             Sfx.Play("door", 0.6f);
         }
 
+        // ------------------------------------------------------------------ vents
+
+        public void EnterVent(Vent from, Vent to)
+        {
+            if (Crawling || dead) return;
+            ExitBox();
+            Crawling = true;
+            crawlFrom = from.Pos;
+            crawlTo = to.Pos;
+            crawlT = 0f;
+            crawlTime = Mathf.Clamp(Vector2.Distance(crawlFrom, crawlTo) / 7f, 1.2f, 3f);
+            crawlSound = 0f;
+            GetComponent<Collider2D>().enabled = false;
+            rb.linearVelocity = Vector2.zero;
+            sr.enabled = false;
+            reticle.enabled = false;
+            Target = null;
+            CurrentInteractable = null;
+            Sfx.Play("vent");
+            Game.I.Toast(Loc.T("toast.vent"));
+        }
+
+        void UpdateCrawl(float dt)
+        {
+            crawlT += dt;
+            crawlSound -= dt;
+            if (crawlSound <= 0f) { Sfx.Play("vent", 0.6f); crawlSound = 0.5f; }
+            float k = Mathf.Clamp01(crawlT / crawlTime);
+            var p = Vector2.Lerp(crawlFrom, crawlTo, Mathf.SmoothStep(0f, 1f, k));
+            rb.position = p;
+            transform.position = p;
+            rb.linearVelocity = Vector2.zero;
+            GameInput.ConsumeShoot(); GameInput.ConsumeInteract(); GameInput.ConsumeDecoy();
+            if (k < 1f) return;
+
+            Crawling = false;
+            GetComponent<Collider2D>().enabled = true;
+            sr.enabled = true;
+            invuln = 0.6f;
+            stillTime = 0f;
+            Game.I.Mission.ventsUsed++;
+            Sfx.Play("door", 0.5f);
+        }
+
         public void Teleport(Vector2 pos)
         {
+            if (Crawling)
+            {
+                Crawling = false;
+                GetComponent<Collider2D>().enabled = true;
+                sr.enabled = true;
+            }
             ExitBox();
             rb.position = pos;
             transform.position = pos;
@@ -253,7 +308,7 @@ namespace MobileGearSolid
 
         public void Hurt(int dmg)
         {
-            if (dead || invuln > 0f) return;
+            if (dead || invuln > 0f || Crawling) return;
             ExitBox();
             hp -= dmg;
             hurtFlash = 1f;
