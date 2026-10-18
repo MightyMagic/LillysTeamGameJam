@@ -26,6 +26,10 @@ namespace MobileGearSolid
         Text roomLabel;
 
         // dialogue widgets
+        TutorialRadioUI tutorialRadio;
+        Image dialogTapCatcher;
+        Text ActiveDialogText => tutorialRadio.Visible ? tutorialRadio.Replica : dialogText;
+        Text ActiveDialogHint => tutorialRadio.Visible ? tutorialRadio.Hint : dialogHint;
         Text dialogName, dialogText, dialogHint;
         Image dialogPortrait;
         RectTransform dialogPortraitFrame, dialogBox;
@@ -64,6 +68,7 @@ namespace MobileGearSolid
             ui.BuildHUD();
             ui.dialog = UIKit.Rect(ui.root, "Dialog").Fill();
             ui.BuildDialog();
+            ui.tutorialRadio = TutorialRadioUI.Create(ui.dialog, ui.hud);
             ui.cards = UIKit.Rect(ui.root, "Cards").Fill();
             ui.pause = UIKit.Rect(ui.root, "Pause").Fill();
             ui.result = UIKit.Rect(ui.root, "Result").Fill();
@@ -72,6 +77,7 @@ namespace MobileGearSolid
 
         void Show(RectTransform screen)
         {
+            if (screen != dialog) tutorialRadio.SetVisible(false);
             menu.gameObject.SetActive(screen == menu);
             ship.gameObject.SetActive(screen == ship);
             briefing.gameObject.SetActive(screen == briefing);
@@ -347,7 +353,7 @@ namespace MobileGearSolid
             SetBar(frameBars[1], new Vector2(viewport.xMax, 0), Vector2.one, framed);
             SetBar(frameBars[2], new Vector2(viewport.xMin, 0), new Vector2(viewport.xMax, viewport.yMin), framed);
             SetBar(frameBars[3], new Vector2(viewport.xMin, viewport.yMax), new Vector2(viewport.xMax, 1), framed);
-            roomLabel.gameObject.SetActive(areaId != null);
+            roomLabel.gameObject.SetActive(areaId != null && !tutorialRadio.Visible);
             if (areaId != null) roomLabel.text = Loc.T("room." + areaId);
         }
 
@@ -606,6 +612,7 @@ namespace MobileGearSolid
         {
             // full-screen invisible button: tap anywhere to continue
             var catcher = UIKit.Img(dialog, "TapCatcher", new Color(0, 0, 0, 0.35f));
+            dialogTapCatcher = catcher;
             catcher.rectTransform.Fill();
             catcher.gameObject.AddComponent<Button>().onClick.AddListener(AdvanceDialog);
 
@@ -643,29 +650,44 @@ namespace MobileGearSolid
         public void ShowDialog(string speaker, string text)
         {
             Show(dialog);
-            bool right = speaker == "boss"; // the hero talks from the right, the radio from the left
-            dialogPortraitFrame.At(new Vector2(right ? 1 : 0, 0.5f), new Vector2(right ? 1 : 0, 0.5f),
-                new Vector2(right ? -25 : 25, 0), new Vector2(300, 300));
-            float textLeft = right ? 40 : 350, textRight = right ? 350 : 40;
-            dialogName.alignment = right ? TextAnchor.UpperRight : TextAnchor.UpperLeft;
-            dialogName.rectTransform.anchorMin = new Vector2(0, 1);
-            dialogName.rectTransform.anchorMax = new Vector2(1, 1);
-            dialogName.rectTransform.pivot = new Vector2(0.5f, 1);
-            dialogName.rectTransform.offsetMin = new Vector2(textLeft, -80);
-            dialogName.rectTransform.offsetMax = new Vector2(-textRight, -24);
-            dialogText.rectTransform.anchorMin = Vector2.zero;
-            dialogText.rectTransform.anchorMax = Vector2.one;
-            dialogText.rectTransform.offsetMin = new Vector2(textLeft, 60);
-            dialogText.rectTransform.offsetMax = new Vector2(-textRight, -90);
+            bool radio = game.Def != null && game.Def.tutorial;
+            tutorialRadio.SetVisible(radio);
+            dialogBox.gameObject.SetActive(!radio);
+            dialogTapCatcher.color = radio ? Color.clear : new Color(0, 0, 0, .35f);
+            if (radio)
+            {
+                tutorialRadio.ShowSpeaker(speaker);
+                UpdateHUD();
+                pointerArrow.gameObject.SetActive(false);
+                pointerMarker.gameObject.SetActive(false);
+                pointerDistance.gameObject.SetActive(false);
+            }
+            else
+            {
+                bool right = speaker == "boss"; // the hero talks from the right, the radio from the left
+                dialogPortraitFrame.At(new Vector2(right ? 1 : 0, 0.5f), new Vector2(right ? 1 : 0, 0.5f),
+                    new Vector2(right ? -25 : 25, 0), new Vector2(300, 300));
+                float textLeft = right ? 40 : 350, textRight = right ? 350 : 40;
+                dialogName.alignment = right ? TextAnchor.UpperRight : TextAnchor.UpperLeft;
+                dialogName.rectTransform.anchorMin = new Vector2(0, 1);
+                dialogName.rectTransform.anchorMax = new Vector2(1, 1);
+                dialogName.rectTransform.pivot = new Vector2(0.5f, 1);
+                dialogName.rectTransform.offsetMin = new Vector2(textLeft, -80);
+                dialogName.rectTransform.offsetMax = new Vector2(-textRight, -24);
+                dialogText.rectTransform.anchorMin = Vector2.zero;
+                dialogText.rectTransform.anchorMax = Vector2.one;
+                dialogText.rectTransform.offsetMin = new Vector2(textLeft, 60);
+                dialogText.rectTransform.offsetMax = new Vector2(-textRight, -90);
 
-            var portrait = Art.S("portrait_" + speaker);
-            dialogPortrait.sprite = portrait;
-            dialogPortrait.enabled = portrait != null;
-            dialogName.text = Loc.Has("speaker." + speaker) ? Loc.T("speaker." + speaker) : speaker;
+                var portrait = Art.S("portrait_" + speaker);
+                dialogPortrait.sprite = portrait;
+                dialogPortrait.enabled = portrait != null;
+                dialogName.text = Loc.Has("speaker." + speaker) ? Loc.T("speaker." + speaker) : speaker;
+            }
             dialogFull = text;
             dialogChars = 0f;
             dialogShown = 0;
-            dialogText.text = "";
+            ActiveDialogText.text = "";
             Sfx.Play("codec", 0.6f);
         }
 
@@ -680,10 +702,10 @@ namespace MobileGearSolid
                 {
                     if (n / 3 != dialogShown / 3) Sfx.Play("blip");
                     dialogShown = n;
-                    dialogText.text = dialogFull.Substring(0, n);
+                    ActiveDialogText.text = dialogFull.Substring(0, n);
                 }
             }
-            dialogHint.enabled = dialogShown >= dialogFull.Length && Mathf.Repeat(Time.unscaledTime * 2f, 1f) > 0.3f;
+            ActiveDialogHint.enabled = dialogShown >= dialogFull.Length && Mathf.Repeat(Time.unscaledTime * 2f, 1f) > 0.3f;
 
             var k = Keyboard.current;
             if (k != null && (k.spaceKey.wasPressedThisFrame || k.enterKey.wasPressedThisFrame || k.eKey.wasPressedThisFrame))
@@ -697,7 +719,7 @@ namespace MobileGearSolid
             {
                 // first tap completes the line, second tap continues
                 dialogShown = dialogFull.Length;
-                dialogText.text = dialogFull;
+                ActiveDialogText.text = dialogFull;
                 return;
             }
             dialogFull = null;

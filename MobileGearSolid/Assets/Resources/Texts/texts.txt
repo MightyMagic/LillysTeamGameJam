@@ -302,3 +302,9 @@ room.raid_passage = ПРОХОД
 room.raid_exit = ВЫХОД
 room.raid_office = ОФИС
 room.raid_store = СКЛАД
+
+# Tutorial radio presentation
+radio.heading = РАДИОСВЯЗЬ
+radio.receive = ПРИЁМ
+radio.transmit = ПЕРЕДАЧА
+radio.connected = НА СВЯЗИ

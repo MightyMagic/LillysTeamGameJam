@@ -1,0 +1,21 @@
+{
+  "designRevision": "major-shoulders-v4",
+  "source": "approved tutorial-radio-msx-v1 mockup",
+  "receiverSource": "receiver.svg",
+  "runtimeArt": [
+    "Assets/Resources/Sprites/receiver_receive.png",
+    "Assets/Resources/Sprites/receiver_transmit.png"
+  ],
+  "receiverRendering": "original SVG rasterized at 2x; direction labels remain native localized PT Mono text; decorative frequency unchanged",
+  "majorFraming": {
+    "scale": 1.35,
+    "translateY": -0.11,
+    "crop": "shoulder-up, full head and both shoulders visible"
+  },
+  "fontLicense": "Assets/Resources/Fonts/PTMono-OFL.txt",
+  "sourceHashes": {
+    "receiver.svg": "858ca286ab7f9aa73b41058f9e532b0ac823b9f670e05a9fcd7ffd4e1c341f82",
+    "portrait_major_serious.png": "e3b26e4fee4b3b359ccc4bc1b47ee768377acc43786f2a0fda85151528c6ae5a",
+    "PTMono-Regular.ttf": "cbe732b3b8fd211fd986ebdfc9b870ddeca4faab0bb5425fc509b37f9b4ac804"
+  }
+}
