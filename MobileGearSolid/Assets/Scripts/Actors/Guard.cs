@@ -78,6 +78,7 @@ namespace MobileGearSolid
             col.offset = new Vector2(0, 0.22f);
 
             g.sr = go.AddComponent<SpriteRenderer>();
+            g.sr.sharedMaterial = Art.Lit;
             if (g.hp > Meta.GuardHp) g.sr.color = new Color(0.72f, 0.8f, 1f); // armoured: bluish tint
             g.anim = new CharAnim("guard");
             g.icon = Art.MakeSprite(go.transform, "StateIcon", "fx_suspect", new Vector3(0, 1.6f), Art.OrderIcons);

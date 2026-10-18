@@ -218,6 +218,7 @@ namespace MobileGearSolid
             go.transform.SetParent(parent, false);
             var tm = go.AddComponent<Tilemap>();
             var tr = go.AddComponent<TilemapRenderer>();
+            tr.sharedMaterial = Art.Lit;
             tr.sortingOrder = order;
             if (collide)
             {

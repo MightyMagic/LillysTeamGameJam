@@ -7,7 +7,7 @@ namespace MobileGearSolid
     public static class Art
     {
         static readonly Dictionary<string, Sprite> cache = new Dictionary<string, Sprite>();
-        static Material unlit;
+        static Material unlit, lit;
         static Font font;
 
         public static Sprite S(string name)
@@ -29,6 +29,21 @@ namespace MobileGearSolid
                     if (unlit == null) unlit = new Material(Shader.Find("Universal Render Pipeline/2D/Sprite-Unlit-Default"));
                 }
                 return unlit;
+            }
+        }
+
+        // Runtime-created renderers do not inherit URP's editor-only default material.
+        // Keep an asset reference in Resources so the lit shader is included in player builds.
+        public static Material Lit
+        {
+            get
+            {
+                if (lit == null)
+                {
+                    lit = Resources.Load<Material>("Materials/Lit");
+                    if (lit == null) lit = new Material(Shader.Find("Universal Render Pipeline/2D/Sprite-Lit-Default"));
+                }
+                return lit;
             }
         }
 
@@ -62,7 +77,7 @@ namespace MobileGearSolid
             sr.sprite = S(sprite);
             sr.sortingOrder = order;
             // gameplay markers ignore 2D lighting so they stay readable in the dark
-            if (sprite.StartsWith("fx_") || sprite.StartsWith("ui_")) sr.sharedMaterial = Unlit;
+            sr.sharedMaterial = sprite.StartsWith("fx_") || sprite.StartsWith("ui_") ? Unlit : Lit;
             return sr;
         }
     }

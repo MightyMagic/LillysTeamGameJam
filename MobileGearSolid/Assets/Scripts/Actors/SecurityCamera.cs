@@ -21,6 +21,7 @@ namespace MobileGearSolid
             t = Random.value * Period;
             transform.position = tileCenter + dir * 0.35f + (dir == Vector2.down ? Vector2.up * 0.1f : Vector2.zero);
             sr = gameObject.AddComponent<SpriteRenderer>();
+            sr.sharedMaterial = Art.Lit;
             sr.sprite = Art.S("prop_camera");
             sr.sortingOrder = Art.OrderWallDecor + 1;
             cone = VisionCone.Create(transform.parent, "CameraCone");

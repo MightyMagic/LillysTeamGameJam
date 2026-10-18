@@ -64,6 +64,7 @@ namespace MobileGearSolid
             // no friction: slide along walls instead of sticking when pushing diagonally into them
             col.sharedMaterial = new PhysicsMaterial2D("PlayerSlide") { friction = 0f, bounciness = 0f };
             p.sr = go.AddComponent<SpriteRenderer>();
+            p.sr.sharedMaterial = Art.Lit;
             p.anim = new CharAnim("player");
             p.hp = p.maxHp = hp;
             p.ammo = ammo;

@@ -22,6 +22,7 @@ namespace MobileGearSolid
             var trap = go.AddComponent<NoiseTrap>();
             trap.pos = pos;
             var sr = go.AddComponent<SpriteRenderer>();
+            sr.sharedMaterial = Art.Lit;
             sr.sprite = Art.S("item_trap");
             sr.sortingOrder = Art.OrderFloorItems + 10;
             trap.blink = Level.MakeLight(go.transform, pos, new Color(1f, 0.3f, 0.2f), 0f, 1.6f);
